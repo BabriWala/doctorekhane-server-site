@@ -37,8 +37,7 @@ app.use(cookieParser());
 app.use(
   cors({
     origin:
-      process.env.FRONTEND_URL ||
-      "https://doctor-ekhane-admin-2025.vercel.app/",
+      process.env.FRONTEND_URL || "https://doctor-ekhane-admin-2025.vercel.app",
     credentials: true,
   })
 );
