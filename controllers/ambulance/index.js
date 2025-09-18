@@ -1,6 +1,6 @@
 module.exports = {
   ...require("./availability"),
-  ...require("./basicinfo"),
+  ...require("./basicInfo"),
   ...require("./contact"),
   ...require("./address"),
   ...require("./profilePicture"),
