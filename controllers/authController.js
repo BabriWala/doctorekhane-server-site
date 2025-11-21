@@ -64,6 +64,7 @@ exports.register = async (req, res) => {
 
 // Login Controller
 exports.login = async (req, res) => {
+  console.log("i n the login field ");
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -71,11 +72,13 @@ exports.login = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Email and password required" });
     }
-
+    console.log(email, password);
     // Find user and select account password for comparison
     const user = await User.findOne({ "personalDetails.email": email }).select(
       "+account.password"
     );
+
+    console.log(user);
 
     if (!user || !(await user.comparePassword(password))) {
       return res
@@ -91,7 +94,7 @@ exports.login = async (req, res) => {
 
     // Convert to JSON and explicitly include account (except password)
     const safeUser = user.toJSON();
-
+    console.log(safeUser);
     // Send JWT tokens and safe user object
     sendTokens(safeUser, res); // assuming sendTokens expects user object
   } catch (error) {

@@ -36,8 +36,8 @@ app.use(cookieParser());
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ADMIN_URL,
-  // "https://doctor-ekhane-admin-2025.vercel.app",
-  // "https://admin.doctorekhane.com", // your admin frontend url
+  "http://localhost:4001",
+  "https://admin.doctorekhane.com",
 ];
 
 // ✅ Global CORS
@@ -101,7 +101,7 @@ app.use("*", (req, res) => {
   res.status(404).json({ success: false, message: "রুট খুঁজে পাওয়া যায়নি" });
 });
 
-const PORT = process.env.PORT || 4003;
+const PORT = process.env.PORT || 4002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 module.exports = app;
