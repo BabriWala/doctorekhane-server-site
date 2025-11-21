@@ -38,13 +38,22 @@ const allowedOrigins = [
   process.env.ADMIN_URL,
   "http://localhost:4001",
   "https://admin.doctorekhane.com",
+  "https://doctorekhane.com",
 ];
 
-// ✅ Global CORS
 app.use(
   cors({
-    origin: allowedOrigins,
     credentials: true,
+    origin: function (origin, callback) {
+      // Allow requests like Postman that send no origin
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("❌ CORS Blocked: " + origin));
+      }
+    },
   })
 );
 
