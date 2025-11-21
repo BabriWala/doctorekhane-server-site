@@ -2,14 +2,25 @@ const User = require("../models/User");
 
 exports.createDefaultAdmin = async () => {
   try {
-    // Check if admin already exists
-    const adminExists = await User.findOne({ role: "admin" });
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@doctorekhane.com";
+
+    if (!adminEmail) {
+      console.warn(
+        "⚠️ ADMIN_EMAIL not set in .env, skipping default admin creation."
+      );
+      return;
+    }
+
+    // Check if admin with this email already exists
+    const adminExists = await User.findOne({
+      "personalDetails.email": adminEmail,
+    });
 
     if (!adminExists) {
       const admin = await User.create({
         personalDetails: {
           name: "Admin",
-          email: process.env.ADMIN_EMAIL || "admin@doctorekhnae.com",
+          email: adminEmail,
           phone: "01700000000",
         },
         account: {
@@ -20,10 +31,14 @@ exports.createDefaultAdmin = async () => {
         emailVerified: true,
       });
 
-      // console.log(admin);
-      console.log("Default admin created:", admin.personalDetails.email);
+      console.log("✅ Default admin created:", admin.personalDetails.email);
+    } else {
+      console.log(
+        "ℹ️ Admin already exists:",
+        adminExists.personalDetails.email
+      );
     }
   } catch (error) {
-    console.error("Error creating default admin:", error.message);
+    console.error("❌ Error creating default admin:", error.message);
   }
 };

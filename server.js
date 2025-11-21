@@ -1,3 +1,4 @@
+// ─── IMPORTS ─────────────────────────────────────────────
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -5,8 +6,8 @@ const helmet = require("helmet");
 const path = require("path");
 const compression = require("compression");
 const morgan = require("morgan");
-require("dotenv").config();
 const cookieParser = require("cookie-parser");
+require("dotenv").config();
 
 // Routes
 const authRoutes = require("./routes/auth");
@@ -22,82 +23,59 @@ const { createDefaultAdmin } = require("./utils/createAdmin");
 
 const app = express();
 
-// Serve uploads folder
+// ─── STATIC & MIDDLEWARE ─────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// =========================
-// Security & Utilities
-// =========================
 app.use(helmet());
 app.use(compression());
-
 app.use(cookieParser());
 
-app.use((req, res, next) => {
-  console.log("🌐 Incoming Origin:", req.headers.origin);
-  next();
-});
+// Logging for dev
+if (process.env.NODE_ENV === "development") {
+  app.use(morgan("dev"));
+}
 
-
-
+// ─── CORS CONFIGURATION ─────────────────────────────
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ADMIN_URL,
   "http://localhost:4001",
   "https://admin.doctorekhane.com",
-  "https://doctorekhane.com"
+  "https://doctorekhane.com",
 ];
 
 app.use(
   cors({
     credentials: true,
     origin: function (origin, callback) {
-      console.log("🔎 Checking Origin:", origin);
+      console.log("🌐 Incoming Origin:", origin);
 
-      if (!origin) {
-        console.log("➡ Allowed (no origin)");
-        return callback(null, true);
-      }
+      if (!origin) return callback(null, true); // Postman or curl
 
       if (allowedOrigins.includes(origin)) {
         console.log("✔ Allowed:", origin);
-        callback(null, true);
+        return callback(null, true);
       } else {
-        console.log("❌ Blocked by CORS:", origin);
-        callback(new Error("CORS Blocked: " + origin));
+        console.warn("❌ Blocked by CORS:", origin);
+        return callback(new Error("CORS Blocked: " + origin));
       }
     },
   })
 );
 
-
-// Body parser
+// ─── BODY PARSER ─────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Logging in dev
-if (process.env.NODE_ENV === "development") {
-  app.use(morgan("dev"));
-}
-
-// =========================
-// Serve uploads folder
-// =========================
-
-// =========================
-// MongoDB connection
-// =========================
+// ─── MONGODB CONNECTION ─────────────────────────────
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => {
-    console.log("MongoDB connected successfully");
-    createDefaultAdmin();
+    console.log("✅ MongoDB connected successfully");
+    createDefaultAdmin(); // Only creates admin if it does not exist
   })
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// =========================
-// Routes
-// =========================
+// ─── ROUTES ─────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/doctor", doctorRoutes);
@@ -114,9 +92,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// =========================
-// Error handling
-// =========================
+// ─── ERROR HANDLING ─────────────────────────────
 app.use(errorHandler);
 
 // 404 handler
@@ -124,7 +100,8 @@ app.use("*", (req, res) => {
   res.status(404).json({ success: false, message: "রুট খুঁজে পাওয়া যায়নি" });
 });
 
+// ─── START SERVER ─────────────────────────────
 const PORT = process.env.PORT || 4002;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 module.exports = app;
