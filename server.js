@@ -33,29 +33,43 @@ app.use(compression());
 
 app.use(cookieParser());
 
+app.use((req, res, next) => {
+  console.log("🌐 Incoming Origin:", req.headers.origin);
+  next();
+});
+
+
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ADMIN_URL,
   "http://localhost:4001",
   "https://admin.doctorekhane.com",
-  "https://doctorekhane.com",
+  "https://doctorekhane.com"
 ];
 
 app.use(
   cors({
     credentials: true,
     origin: function (origin, callback) {
-      // Allow requests like Postman that send no origin
-      if (!origin) return callback(null, true);
+      console.log("🔎 Checking Origin:", origin);
+
+      if (!origin) {
+        console.log("➡ Allowed (no origin)");
+        return callback(null, true);
+      }
 
       if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
+        console.log("✔ Allowed:", origin);
+        callback(null, true);
       } else {
-        return callback(new Error("❌ CORS Blocked: " + origin));
+        console.log("❌ Blocked by CORS:", origin);
+        callback(new Error("CORS Blocked: " + origin));
       }
     },
   })
 );
+
 
 // Body parser
 app.use(express.json({ limit: "10mb" }));
