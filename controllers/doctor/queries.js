@@ -1,21 +1,41 @@
 const Doctor = require("../../models/Doctor");
 
 // ======================================
-//  GET ALL DOCTORS WITH OPTIONAL FILTERS
+//  GET ALL DOCTORS WITH OPTIONAL FILTERS + PAGINATION
 // ======================================
 const getAllDoctors = async (req, res) => {
   try {
     const { status, department, field } = req.query;
 
+    // Pagination params
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10; // default 10
+    const skip = (page - 1) * limit;
+
+    // Filters
     let filter = {};
 
     if (status) filter["professional.status"] = status;
     if (department) filter["professional.department"] = department;
     if (field) filter["professional.field"] = field;
 
-    const doctors = await Doctor.find(filter);
+    // Get total count (before pagination)
+    const totalItems = await Doctor.countDocuments(filter);
 
-    return res.status(200).json(doctors);
+    // Final query with pagination
+    const doctors = await Doctor.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }); // optional: newest first
+
+    return res.status(200).json({
+      success: true,
+      currentPage: page,
+      totalItems,
+      totalPages: Math.ceil(totalItems / limit),
+      count: doctors.length,
+      data: doctors,
+    });
   } catch (error) {
     console.error("Error fetching doctors:", error);
     return res.status(500).json({ message: "Server error" });

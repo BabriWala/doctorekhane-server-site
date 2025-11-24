@@ -39,6 +39,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ADMIN_URL,
   "http://localhost:4001",
+  "http://localhost:4000",
   "https://admin.doctorekhane.com",
   "https://doctorekhane.com",
 ];
