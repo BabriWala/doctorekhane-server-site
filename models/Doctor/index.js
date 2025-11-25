@@ -19,6 +19,16 @@ const doctorSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// --- Transform _id to id for JSON responses ---
+doctorSchema.set("toJSON", {
+  virtuals: true,
+  versionKey: false, // removes __v
+  transform: (doc, ret) => {
+    ret.id = ret._id;
+    delete ret._id;
+  },
+});
+
 const Doctor = mongoose.model("Doctor", doctorSchema);
 
 module.exports = Doctor;
