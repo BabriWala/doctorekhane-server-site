@@ -6,7 +6,7 @@ exports.createDefaultAdmin = async () => {
 
     if (!adminEmail) {
       console.warn(
-        "⚠️ ADMIN_EMAIL not set in .env, skipping default admin creation."
+        "⚠️ ADMIN_EMAIL not set in .env, skipping default admin creation.",
       );
       return;
     }
@@ -35,7 +35,7 @@ exports.createDefaultAdmin = async () => {
     } else {
       console.log(
         "ℹ️ Admin already exists:",
-        adminExists.personalDetails.email
+        adminExists.personalDetails.email,
       );
     }
   } catch (error) {

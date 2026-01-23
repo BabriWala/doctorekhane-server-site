@@ -39,19 +39,21 @@ const userSchema = new mongoose.Schema(
       default: "active",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // ─── Middleware & Methods ─────────────────────────────────────────────
 
 // 🔑 Hash password before save
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("account.password")) return next();
+userSchema.pre("save", async function () {
+  // if password not changed, skip
+  if (!this.isModified("account.password")) return;
+
+  // if password missing, skip (optional safety)
+  if (!this.account?.password) return;
 
   const salt = await bcrypt.genSalt(12);
   this.account.password = await bcrypt.hash(this.account.password, salt);
-
-  next();
 });
 
 // 🔑 Compare password method

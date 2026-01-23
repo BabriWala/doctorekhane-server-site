@@ -60,7 +60,7 @@ app.use(
         return callback(new Error("CORS Blocked: " + origin));
       }
     },
-  })
+  }),
 );
 
 // ─── BODY PARSER ─────────────────────────────
@@ -97,7 +97,7 @@ app.get("/api/health", (req, res) => {
 app.use(errorHandler);
 
 // 404 handler
-app.use("*", (req, res) => {
+app.use((req, res) => {
   res.status(404).json({ success: false, message: "রুট খুঁজে পাওয়া যায়নি" });
 });
 

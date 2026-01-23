@@ -7,7 +7,7 @@ const personalDetailsSchema = new mongoose.Schema({
   middleName: { type: String },
   lastName: { type: String, required: true },
   gender: { type: String, enum: ["Male", "Female", "Other"], required: true },
-  dob: { type: Date, required: true },
+  dob: { type: Date },
   phone: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   profilePicture: { type: String },

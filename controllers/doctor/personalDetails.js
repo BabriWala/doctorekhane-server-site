@@ -63,7 +63,7 @@ const updatePersonalDetails = async (req, res) => {
       middleName,
       lastName,
       gender,
-      dob,
+      // dob,
       phone,
       email,
       profilePicture,
@@ -81,7 +81,7 @@ const updatePersonalDetails = async (req, res) => {
     pd.middleName = middleName || pd.middleName;
     pd.lastName = lastName || pd.lastName;
     pd.gender = gender || pd.gender;
-    pd.dob = dob || pd.dob;
+    // pd.dob = dob || pd.dob;
     pd.phone = phone || pd.phone;
     pd.email = email || pd.email;
     pd.profilePicture = profilePicture || pd.profilePicture;

@@ -6,6 +6,7 @@ const professionalSchema = new mongoose.Schema({
   department: { type: String },
   field: { type: String },
   consultationFee: { type: Number },
+  consultationFeeNew: { type: Number },
 
   status: {
     type: String,

@@ -9,6 +9,7 @@ const updateProfessional = async (req, res) => {
       department,
       field,
       consultationFee,
+      consultationFeeNew,
       status,
       order,
       licenseNumber,
@@ -24,6 +25,7 @@ const updateProfessional = async (req, res) => {
     if (department) prof.department = department;
     if (field) prof.field = field;
     if (consultationFee) prof.consultationFee = consultationFee;
+    if (consultationFeeNew) prof.consultationFeeNew = consultationFeeNew;
     if (status) prof.status = status;
     if (order) prof.order = order;
     if (licenseNumber) prof.licenseNumber = licenseNumber;
