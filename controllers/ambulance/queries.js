@@ -5,21 +5,47 @@ const Ambulance = require("../../models/Ambulance");
 // ======================================
 const getAllAmbulances = async (req, res) => {
   try {
-    const { type, city, isAvailable } = req.query;
+    const { type, address, isAvailable } = req.query;
+
+    // ✅ pagination params
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
     const filter = {};
 
     if (type) filter["basicInfo.type"] = type;
-    if (city) filter["address.city"] = city;
-    if (isAvailable !== undefined)
+    if (address) filter["address.address"] = address;
+    if (isAvailable !== undefined) {
       filter["availability.isAvailable"] = isAvailable === "true";
+    }
 
-    const ambulances = await Ambulance.find(filter);
-    res.status(200).json({ success: true, ambulances });
+    // ✅ total count (before pagination)
+    const total = await Ambulance.countDocuments(filter);
+
+    // ✅ paginated data
+    const ambulances = await Ambulance.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }); // optional but recommended
+
+    res.status(200).json({
+      success: true,
+      ambulances,
+      pagination: {
+        totalItems: total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        pageSize: limit,
+      },
+    });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -63,16 +89,23 @@ const getAmbulancesByType = async (req, res) => {
 };
 
 // ======================================
-// GET AMBULANCES BY CITY
+// GET AMBULANCES BY Address
 // ======================================
-const getAmbulancesByCity = async (req, res) => {
+const getAmbulancesByAddress = async (req, res) => {
   try {
-    const { city } = req.params;
-    const ambulances = await Ambulance.find({ "address.city": city });
+    const address = (req.query.address || "").trim();
+    if (!address) {
+      return res
+        .status(400)
+        .json({ success: false, message: "address is required" });
+    }
+
+    const ambulances = await Ambulance.find({
+      "address.address": { $regex: address, $options: "i" },
+    });
 
     res.status(200).json({ success: true, ambulances });
   } catch (error) {
-    console.error(error);
     res
       .status(500)
       .json({ success: false, message: "Server error", error: error.message });
@@ -100,6 +133,6 @@ module.exports = {
   getAllAmbulances,
   getAmbulanceById,
   getAmbulancesByType,
-  getAmbulancesByCity,
+  getAmbulancesByAddress,
   getAvailableAmbulances,
 };

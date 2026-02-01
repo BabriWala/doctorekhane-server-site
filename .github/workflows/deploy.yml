@@ -36,6 +36,6 @@ jobs:
             pnpm install
 
             # Restart PM2 process
-            pm2 restart doctorekhane-server
+            pm2 restart doctorekhane-server-site
 
             echo "🚀 Server deployment completed!"

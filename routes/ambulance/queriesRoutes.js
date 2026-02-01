@@ -4,7 +4,7 @@ const {
   getAllAmbulances,
   getAmbulanceById,
   getAmbulancesByType,
-  getAmbulancesByCity,
+  getAmbulancesByAddress,
   getAvailableAmbulances,
 } = require("../../controllers/ambulance/queries");
 
@@ -13,19 +13,19 @@ const router = express.Router();
 // ======================================
 //  QUERY ROUTES
 // ======================================
-// Get all ambulances (optional filters: type, city, isAvailable)
+// Get all ambulances (optional filters: type, address, isAvailable)
 router.get("/", protect, adminOnly, getAllAmbulances);
 
-// Get single ambulance by ID
-router.get("/:ambulanceId", protect, adminOnly, getAmbulanceById);
-
 // Get ambulances by type
-router.get("/type/:type", protect, adminOnly, getAmbulancesByType);
+router.get("/type/:address", protect, adminOnly, getAmbulancesByType);
 
 // Get ambulances by city
-router.get("/city/:city", protect, adminOnly, getAmbulancesByCity);
+// router.get("/address/:address", protect, adminOnly, getAmbulancesByAddress);
 
 // Get available ambulances
 router.get("/available", protect, adminOnly, getAvailableAmbulances);
+
+// Get single ambulance by ID
+router.get("/:ambulanceId", protect, adminOnly, getAmbulanceById);
 
 module.exports = router;
