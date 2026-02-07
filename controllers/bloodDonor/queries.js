@@ -6,16 +6,39 @@ const BloodDonor = require("../../models/BloodDonor");
 // ======================================
 const getAllBloodDonors = async (req, res) => {
   try {
-    const { bloodGroup, city, isActive } = req.query;
+    const { bloodGroup, address, isActive } = req.query;
+
+    // ✅ pagination params
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
     let filter = {};
 
     if (bloodGroup) filter["basicInfo.bloodGroup"] = bloodGroup;
-    if (city) filter["address.city"] = city;
+    if (address) filter["address.address"] = address;
     if (isActive !== undefined)
       filter["donationInfo.isActive"] = isActive === "true";
 
-    const donors = await BloodDonor.find(filter);
-    res.status(200).json({ count: donors.length, donors });
+    // ✅ total count (before pagination)
+    const total = await BloodDonor.countDocuments(filter);
+
+    // ✅ paginated data
+    const donors = await BloodDonor.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }); // optional but recommended
+
+    res.status(200).json({
+      success: true,
+      ambulances,
+      pagination: {
+        totalItems: total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        pageSize: limit,
+      },
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error", error });
