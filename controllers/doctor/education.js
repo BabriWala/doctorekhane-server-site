@@ -6,9 +6,9 @@ const addEducation = async (req, res) => {
     const { doctorId } = req.params;
     const { degree, institution, yearOfCompletion } = req.body;
 
-    if (!degree || !institution || !yearOfCompletion) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
+    // if (!degree || !institution || !yearOfCompletion) {
+    //   return res.status(400).json({ message: "One fields are required" });
+    // }
 
     const doctor = await Doctor.findById(doctorId);
     if (!doctor) return res.status(404).json({ message: "Doctor not found" });
