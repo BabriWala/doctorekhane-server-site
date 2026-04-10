@@ -42,6 +42,7 @@ const allowedOrigins = [
   "http://localhost:4000",
   "https://admin.doctorekhane.com",
   "https://doctorekhane.com",
+  "https://www.doctorekhane.com",
 ];
 
 app.use(

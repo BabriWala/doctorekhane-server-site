@@ -32,8 +32,9 @@ const updateBloodDonorAddress = async (req, res) => {
     await donor.save();
 
     res.status(200).json({
+      success: true,
       message: "Blood donor address updated successfully",
-      address: address,
+      data: donor,
     });
   } catch (error) {
     console.error(error);

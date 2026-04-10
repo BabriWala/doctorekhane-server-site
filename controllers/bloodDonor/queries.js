@@ -31,7 +31,7 @@ const getAllBloodDonors = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      ambulances,
+      donors,
       pagination: {
         totalItems: total,
         totalPages: Math.ceil(total / limit),
@@ -54,7 +54,7 @@ const getBloodDonorById = async (req, res) => {
     const donor = await BloodDonor.findById(donorId);
     if (!donor) return res.status(404).json({ message: "Donor not found" });
 
-    res.status(200).json(donor);
+    res.status(200).json({ success: true, donor });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error", error });
