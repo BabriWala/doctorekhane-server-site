@@ -11,6 +11,7 @@ const getAllDoctors = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    // ✅ Admin check (temporary)
     const isAdmin = req.query.admin === "true";
 
     let match = {};
@@ -20,9 +21,11 @@ const getAllDoctors = async (req, res) => {
       match["professional.status"] = "Active";
     }
 
+    // Filters
     if (department) match["professional.department"] = department;
     if (field) match["professional.field"] = field;
 
+    // Search
     if (search) {
       const regex = new RegExp(search, "i");
 
@@ -35,13 +38,16 @@ const getAllDoctors = async (req, res) => {
       ];
     }
 
+    // ✅ Total count
     const totalItems = await Doctor.countDocuments(match);
 
+    // ✅ Aggregation
     const doctors = await Doctor.aggregate([
       { $match: match },
 
       {
         $addFields: {
+          id: "$_id", // ✅ convert _id → id
           isActive: {
             $cond: [{ $eq: ["$professional.status", "Active"] }, 1, 0],
           },
@@ -50,14 +56,21 @@ const getAllDoctors = async (req, res) => {
 
       {
         $sort: {
-          "professional.order": 1, // ✅ FIRST
-          isActive: -1, // ✅ THEN Active first
-          createdAt: -1,
+          "professional.order": 1, // 🔥 FIRST priority
+          isActive: -1, // 🔥 THEN Active first
+          createdAt: -1, // 🔥 latest
         },
       },
 
       { $skip: skip },
       { $limit: limit },
+
+      {
+        $project: {
+          _id: 0, // ❌ remove _id
+          isActive: 0, // optional: hide helper field
+        },
+      },
     ]);
 
     return res.status(200).json({
