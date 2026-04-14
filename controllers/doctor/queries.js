@@ -11,17 +11,22 @@ const getAllDoctors = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    let filter = {
-      "professional.status": "Active",
-    };
+    const isAdmin = req.user.account.role === "admin";
 
-    if (department) filter["professional.department"] = department;
-    if (field) filter["professional.field"] = field;
+    let match = {};
+
+    // 🔥 Public vs Admin
+    if (!isAdmin) {
+      match["professional.status"] = "Active";
+    }
+
+    if (department) match["professional.department"] = department;
+    if (field) match["professional.field"] = field;
 
     if (search) {
       const regex = new RegExp(search, "i");
 
-      filter.$or = [
+      match.$or = [
         { "personalDetails.firstName": regex },
         { "personalDetails.middleName": regex },
         { "personalDetails.lastName": regex },
@@ -30,15 +35,30 @@ const getAllDoctors = async (req, res) => {
       ];
     }
 
-    const totalItems = await Doctor.countDocuments(filter);
+    const totalItems = await Doctor.countDocuments(match);
 
-    const doctors = await Doctor.find(filter)
-      .sort({
-        "professional.order": 1, // 👈 main feature
-        createdAt: -1,
-      })
-      .skip(skip)
-      .limit(limit);
+    const doctors = await Doctor.aggregate([
+      { $match: match },
+
+      {
+        $addFields: {
+          isActive: {
+            $cond: [{ $eq: ["$professional.status", "Active"] }, 1, 0],
+          },
+        },
+      },
+
+      {
+        $sort: {
+          "professional.order": 1, // ✅ FIRST
+          isActive: -1, // ✅ THEN Active first
+          createdAt: -1,
+        },
+      },
+
+      { $skip: skip },
+      { $limit: limit },
+    ]);
 
     return res.status(200).json({
       success: true,
