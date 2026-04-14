@@ -11,7 +11,7 @@ const getAllDoctors = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const isAdmin = req.user.account.role === "admin";
+    const isAdmin = req.query.admin === "true";
 
     let match = {};
 
