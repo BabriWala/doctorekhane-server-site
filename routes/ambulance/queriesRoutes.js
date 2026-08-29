@@ -14,18 +14,18 @@ const router = express.Router();
 //  QUERY ROUTES
 // ======================================
 // Get all ambulances (optional filters: type, address, isAvailable)
-router.get("/", protect, adminOnly, getAllAmbulances);
+router.get("/", getAllAmbulances);
 
 // Get ambulances by type
-router.get("/type/:address", protect, adminOnly, getAmbulancesByType);
+router.get("/type/:type", getAmbulancesByType);
 
 // Get ambulances by city
 // router.get("/address/:address", protect, adminOnly, getAmbulancesByAddress);
 
 // Get available ambulances
-router.get("/available", protect, adminOnly, getAvailableAmbulances);
+router.get("/available", getAvailableAmbulances);
 
 // Get single ambulance by ID
-router.get("/:ambulanceId", protect, adminOnly, getAmbulanceById);
+router.get("/:ambulanceId", getAmbulanceById);
 
 module.exports = router;

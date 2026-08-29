@@ -63,7 +63,7 @@ const updatePersonalDetails = async (req, res) => {
       middleName,
       lastName,
       gender,
-      // dob,
+      dob,
       phone,
       email,
       profilePicture,
@@ -77,25 +77,16 @@ const updatePersonalDetails = async (req, res) => {
 
     const pd = doctor.personalDetails;
 
-    pd.firstName = firstName || pd.firstName;
-    pd.middleName = middleName || pd.middleName;
-    pd.lastName = lastName || pd.lastName;
-    pd.gender = gender || pd.gender;
-    // pd.dob = dob || pd.dob;
-    pd.phone = phone || pd.phone;
-    pd.email = email || pd.email;
-    pd.profilePicture = profilePicture || pd.profilePicture;
-    pd.about = about || pd.about;
-    pd.totalExperience = totalExperience || pd.totalExperience;
+    const updates = { firstName, middleName, lastName, gender, dob, phone, email, profilePicture, about, totalExperience };
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) pd[key] = value;
+    });
 
     // Update address if provided
     if (address) {
       pd.address = {
-        street: address.street || pd.address.street,
-        city: address.city || pd.address.city,
-        state: address.state || pd.address.state,
-        country: address.country || pd.address.country,
-        zip: address.zip || pd.address.zip,
+        ...(pd.address?.toObject?.() || pd.address || {}),
+        ...address,
       };
     }
 

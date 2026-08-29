@@ -13,6 +13,7 @@ const router = express.Router();
 router.use(protect, adminOnly);
 
 router.get("/dashboard", getDashboardStats);
+router.get("/stats", getDashboardStats);
 router.get("/system", getSystemInfo);
 router.get("/export", exportData);
 router.post("/clear-cache", clearCache);

@@ -8,6 +8,8 @@ const addressRoutes = require("./addressRoutes");
 const profilePictureRoutes = require("./profilePictureRoutes");
 
 const router = express.Router();
+const { protect, adminOnly } = require("../../middleware/auth");
+const { deleteAmbulance } = require("../../controllers/resourceController");
 
 router.use("/", queriesRoutes);
 
@@ -16,5 +18,6 @@ router.use("/", basicInfoRoutes);
 router.use("/", contactRoutes);
 router.use("/", addressRoutes);
 router.use("/", profilePictureRoutes);
+router.delete("/:id", protect, adminOnly, deleteAmbulance);
 
 module.exports = router;

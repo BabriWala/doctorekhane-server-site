@@ -11,11 +11,18 @@ const profilePictureRoutes = require("./profilePictureRoutes");
 const specializationRoutes = require("./specializationRoutes");
 
 const router = express.Router();
+const { protect, adminOnly } = require("../../middleware/auth");
+const { deleteDoctor } = require("../../controllers/resourceController");
+const { optionalAuth } = require("../../middleware/auth");
+const { listReviews, createReview } = require("../../controllers/reviewController");
 
 router.use("/", queriesRoutes);
 
 router.use("/", personalDetailsRoutes);
 router.use("/", addressRoutes);
+router.get("/:id/reviews", listReviews("doctor"));
+router.post("/:id/reviews", optionalAuth, createReview("doctor"));
+router.delete("/:id", protect, adminOnly, deleteDoctor);
 router.use("/", educationRoutes);
 router.use("/", chamberSlotsRoutes);
 router.use("/", experienceRoutes);

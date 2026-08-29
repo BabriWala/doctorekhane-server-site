@@ -8,8 +8,14 @@ const {
   getAllUsers,
   getUserById,
   updateUserStatus,
+  updateUser,
   deleteUser,
   createAdmin,
+  getUserStats,
+  bulkAction,
+  exportUsers,
+  getFavoriteDoctors,
+  toggleFavoriteDoctor,
 } = require("../controllers/userController");
 const { protect, adminOnly } = require("../middleware/auth");
 const upload = require("../middleware/upload");
@@ -52,11 +58,18 @@ router.post(
   uploadProfilePhoto
 );
 router.delete("/account", deleteAccount);
+router.get("/favorites/doctors", getFavoriteDoctors);
+router.post("/favorites/doctors/:doctorId", toggleFavoriteDoctor);
 
 // Admin routes
 router.get("/admin/all", adminOnly, getAllUsers);
+router.get("/stats", adminOnly, getUserStats);
+router.post("/bulk-action", adminOnly, bulkAction);
+router.get("/export", adminOnly, exportUsers);
 router.get("/admin/:id", adminOnly, getUserById);
+router.patch("/admin/:id", adminOnly, updateUser);
 router.patch("/admin/:id/status", adminOnly, updateUserStatus);
+router.patch("/:id/status", adminOnly, updateUserStatus);
 router.delete("/admin/:id", adminOnly, deleteUser);
 router.post("/admin/create", adminOnly, adminValidation, createAdmin);
 

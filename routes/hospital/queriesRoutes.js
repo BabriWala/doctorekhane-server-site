@@ -1,5 +1,5 @@
 const express = require("express");
-const { protect, adminOnly } = require("../../middleware/auth");
+const { optionalAuth } = require("../../middleware/auth");
 const {
   getAllHospitals,
   searchHospitalsByCity,
@@ -13,7 +13,7 @@ const router = express.Router();
 //  GET ALL HOSPITALS
 //  Optional filters: city, type, status
 // ======================================
-router.get("", getAllHospitals);
+router.get("", optionalAuth, getAllHospitals);
 
 // ======================================
 //  GET SINGLE HOSPITAL BY ID

@@ -6,10 +6,11 @@ const {
   getDoctorsByChamberCity,
   sortDoctorsByField,
 } = require("../../controllers/doctor");
+const { optionalAuth } = require("../../middleware/auth");
 const router = express.Router();
 
 // Get all doctors
-router.get("", getAllDoctors);
+router.get("", optionalAuth, getAllDoctors);
 
 // Get doctor by ID
 router.get("/:doctorId", getDoctorById);

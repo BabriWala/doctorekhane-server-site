@@ -1,402 +1,152 @@
 const User = require("../models/User");
 const { validationResult } = require("express-validator");
-const upload = require("../middleware/upload");
 
-// Get user profile
-exports.getProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id)
-      .populate(
-        "bookings",
-        "bookingNumber package travelDates bookingStatus totalCost"
-      )
-      .populate(
-        "visaApplications",
-        "visaType destinationCountry applicationStatus createdAt"
-      );
-
-    res.json({
-      success: true,
-      message: "ব্যবহারকারীর প্রোফাইল",
-      data: user,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "প্রোফাইল আনতে সমস্যা হয়েছে",
-      error: error.message,
-    });
-  }
+const publicUser = (document) => {
+  const user = document.toJSON ? document.toJSON() : document;
+  return {
+    id: String(user._id || user.id), _id: user._id || user.id,
+    name: user.personalDetails?.name || "", email: user.personalDetails?.email || "",
+    phone: user.personalDetails?.phone || "", role: user.account?.role || "user",
+    account: { role: user.account?.role || "user" }, personalDetails: user.personalDetails,
+    passportNumber: user.passportNumber || "", profilePhoto: user.profilePhoto || null,
+    emailVerified: Boolean(user.emailVerified), status: user.status || "active",
+    createdAt: user.createdAt, updatedAt: user.updatedAt, bookings: [], visaApplications: [],
+  };
 };
 
-// Update user profile
-exports.updateProfile = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "ভ্যালিডেশন এরর",
-        errors: errors.array(),
-      });
-    }
-
-    // Fields that users can update
-    const allowedFields = ["name", "phone", "passportNumber"];
-    const updateData = {};
-
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
-      }
-    });
-
-    const user = await User.findByIdAndUpdate(req.user.id, updateData, {
-      new: true,
-      runValidators: true,
-    });
-
-    res.json({
-      success: true,
-      message: "প্রোফাইল সফলভাবে আপডেট হয়েছে",
-      data: user,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "প্রোফাইল আপডেটে সমস্যা হয়েছে",
-      error: error.message,
-    });
-  }
+const validationErrors = (req, res) => {
+  const errors = validationResult(req);
+  if (errors.isEmpty()) return false;
+  res.status(400).json({ success: false, message: "Validation failed", errors: errors.array() });
+  return true;
 };
 
-// Upload profile photo
-exports.uploadProfilePhoto = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "ছবি ফাইল আবশ্যক",
-      });
-    }
+exports.getProfile = async (req, res, next) => { try {
+  const user = await User.findById(req.user.id);
+  res.json({ success: true, data: publicUser(user), user: publicUser(user) });
+} catch (error) { next(error); } };
 
-    // In production, upload to Cloudinary or S3
-    const photoUrl = `/uploads/profilePhoto/${req.file.filename}`;
+exports.updateProfile = async (req, res, next) => { try {
+  if (validationErrors(req, res)) return;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+  for (const field of ["name", "phone"]) if (req.body[field] !== undefined) user.personalDetails[field] = req.body[field];
+  if (req.body.passportNumber !== undefined) user.passportNumber = req.body.passportNumber;
+  await user.save();
+  res.json({ success: true, message: "Profile updated", data: publicUser(user), user: publicUser(user) });
+} catch (error) { next(error); } };
 
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { profilePhoto: photoUrl },
-      { new: true, runValidators: true }
-    );
+exports.uploadProfilePhoto = async (req, res, next) => { try {
+  if (!req.file) return res.status(400).json({ success: false, message: "Photo is required" });
+  const photoUrl = `/uploads/profilePhoto/${req.file.filename}`;
+  const user = await User.findByIdAndUpdate(req.user.id, { profilePhoto: photoUrl }, { new: true });
+  res.json({ success: true, message: "Profile photo updated", data: { profilePhoto: user.profilePhoto } });
+} catch (error) { next(error); } };
 
-    res.json({
-      success: true,
-      message: "প্রোফাইল ছবি সফলভাবে আপলোড হয়েছে",
-      data: {
-        profilePhoto: user.profilePhoto,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "ছবি আপলোডে সমস্যা হয়েছে",
-      error: error.message,
-    });
+exports.deleteAccount = async (req, res, next) => { try {
+  const user = await User.findById(req.user.id).select("+account.password");
+  if (!user || !req.body.password || !(await user.comparePassword(req.body.password))) return res.status(400).json({ success: false, message: "Password is incorrect" });
+  await user.deleteOne();
+  res.clearCookie("refreshToken", { path: "/api/auth" });
+  res.json({ success: true, message: "Account deleted" });
+} catch (error) { next(error); } };
+
+const userFilter = (query) => {
+  const filter = {};
+  if (query.role) filter["account.role"] = query.role;
+  if (query.status) filter.status = query.status;
+  if (query.search) {
+    const regex = new RegExp(String(query.search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [{ "personalDetails.name": regex }, { "personalDetails.email": regex }, { "personalDetails.phone": regex }];
   }
+  return filter;
 };
 
-// Delete user account
-exports.deleteAccount = async (req, res) => {
-  try {
-    const { password } = req.body;
+exports.getAllUsers = async (req, res, next) => { try {
+  const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 10, 1), 100);
+  const filter = userFilter(req.query);
+  const [users, total] = await Promise.all([User.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit), User.countDocuments(filter)]);
+  res.json({ success: true, data: { users: users.map(publicUser), pagination: { current: page, pages: Math.ceil(total / limit), total } } });
+} catch (error) { next(error); } };
 
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: "পাসওয়ার্ড নিশ্চিতকরণ আবশ্যক",
-      });
-    }
+exports.getUserStats = async (req, res, next) => { try {
+  const [total, active, blocked, admins] = await Promise.all([User.countDocuments(), User.countDocuments({ status: "active" }), User.countDocuments({ status: "blocked" }), User.countDocuments({ "account.role": { $in: ["admin", "superadmin"] } })]);
+  res.json({ success: true, total, active, blocked, admins });
+} catch (error) { next(error); } };
 
-    const user = await User.findById(req.user.id).select("+password");
+exports.getUserById = async (req, res, next) => { try {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+  res.json({ success: true, data: publicUser(user) });
+} catch (error) { next(error); } };
 
-    if (!(await user.comparePassword(password))) {
-      return res.status(400).json({
-        success: false,
-        message: "ভুল পাসওয়ার্ড",
-      });
-    }
+exports.updateUser = async (req, res, next) => { try {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+  for (const field of ["name", "email", "phone"]) if (req.body[field] !== undefined) user.personalDetails[field] = req.body[field];
+  if (req.body.role !== undefined) user.account.role = req.body.role;
+  if (req.body.passportNumber !== undefined) user.passportNumber = req.body.passportNumber;
+  await user.save();
+  res.json({ success: true, data: publicUser(user) });
+} catch (error) { next(error); } };
 
-    // Check for active bookings
-    const activeBookings = await require("../models/Booking").countDocuments({
-      user: req.user.id,
-      bookingStatus: { $in: ["pending", "confirmed"] },
-    });
+exports.updateUserStatus = async (req, res, next) => { try {
+  if (!["active", "blocked"].includes(req.body.status)) return res.status(400).json({ success: false, message: "Invalid status" });
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+  if (String(user._id) === String(req.user._id) && req.body.status === "blocked") return res.status(400).json({ success: false, message: "You cannot block your own account" });
+  user.status = req.body.status; await user.save();
+  res.json({ success: true, data: publicUser(user) });
+} catch (error) { next(error); } };
 
-    if (activeBookings > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "সক্রিয় বুকিং থাকায় অ্যাকাউন্ট মুছা যাবে না",
-      });
-    }
+exports.deleteUser = async (req, res, next) => { try {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+  if (String(user._id) === String(req.user._id) || user.account?.role === "superadmin") return res.status(400).json({ success: false, message: "This account cannot be deleted" });
+  await user.deleteOne(); res.json({ success: true, message: "User deleted" });
+} catch (error) { next(error); } };
 
-    await User.findByIdAndDelete(req.user.id);
+exports.createAdmin = async (req, res, next) => { try {
+  if (validationErrors(req, res)) return;
+  const email = req.body.email.trim().toLowerCase();
+  if (await User.exists({ "personalDetails.email": email })) return res.status(409).json({ success: false, message: "Email already exists" });
+  const admin = await User.create({ personalDetails: { name: req.body.name, email, phone: req.body.phone }, account: { password: req.body.password, role: "admin" }, status: "active", emailVerified: true });
+  res.status(201).json({ success: true, user: publicUser(admin) });
+} catch (error) { next(error); } };
 
-    res.json({
-      success: true,
-      message: "অ্যাকাউন্ট সফলভাবে মুছে ফেলা হয়েছে",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "অ্যাকাউন্ট মুছতে সমস্যা হয়েছে",
-      error: error.message,
-    });
-  }
-};
+exports.bulkAction = async (req, res, next) => { try {
+  const { action, userIds } = req.body;
+  if (!Array.isArray(userIds) || !userIds.length) return res.status(400).json({ success: false, message: "userIds are required" });
+  const safeIds = userIds.filter((id) => String(id) !== String(req.user._id));
+  if (["activate", "unblock"].includes(action)) await User.updateMany({ _id: { $in: safeIds } }, { status: "active" });
+  else if (action === "block") await User.updateMany({ _id: { $in: safeIds }, "account.role": { $ne: "superadmin" } }, { status: "blocked" });
+  else if (action === "delete") await User.deleteMany({ _id: { $in: safeIds }, "account.role": { $nin: ["admin", "superadmin"] } });
+  else return res.status(400).json({ success: false, message: "Invalid bulk action" });
+  res.json({ success: true, message: "Bulk action completed" });
+} catch (error) { next(error); } };
 
-// Get all users (Admin only)
-exports.getAllUsers = async (req, res) => {
-  try {
-    const page = Number.parseInt(req.query.page) || 1;
-    const limit = Number.parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+exports.exportUsers = async (req, res, next) => { try {
+  const users = (await User.find().sort({ createdAt: -1 })).map(publicUser);
+  const quote = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const rows = [["name", "email", "phone", "role", "status", "createdAt"], ...users.map((u) => [u.name, u.email, u.phone, u.role, u.status, u.createdAt])];
+  res.set("Content-Type", "text/csv; charset=utf-8"); res.set("Content-Disposition", "attachment; filename=users.csv");
+  res.send(rows.map((row) => row.map(quote).join(",")).join("\n"));
+} catch (error) { next(error); } };
 
-    const filter = {};
+exports.getFavoriteDoctors = async (req, res, next) => { try {
+  const user = await User.findById(req.user._id).populate("favoriteDoctors");
+  res.json({ success: true, data: user.favoriteDoctors || [] });
+} catch (error) { next(error); } };
 
-    if (req.query.role) {
-      filter.role = req.query.role;
-    }
+exports.toggleFavoriteDoctor = async (req, res, next) => { try {
+  const Doctor = require("../models/Doctor");
+  if (!(await Doctor.exists({ _id: req.params.doctorId, "professional.status": "Active" }))) return res.status(404).json({ success: false, message: "Doctor not found" });
+  const user = await User.findById(req.user._id);
+  const exists = user.favoriteDoctors.some((id) => String(id) === req.params.doctorId);
+  if (exists) user.favoriteDoctors.pull(req.params.doctorId); else user.favoriteDoctors.push(req.params.doctorId);
+  await user.save();
+  res.json({ success: true, favorite: !exists, data: user.favoriteDoctors });
+} catch (error) { next(error); } };
 
-    if (req.query.status) {
-      filter.status = req.query.status;
-    }
-
-    if (req.query.search) {
-      filter.$or = [
-        { name: new RegExp(req.query.search, "i") },
-        { email: new RegExp(req.query.search, "i") },
-        { phone: new RegExp(req.query.search, "i") },
-      ];
-    }
-
-    const users = await User.find(filter)
-      .select("-password")
-      .populate("bookings", "bookingNumber totalCost bookingStatus")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await User.countDocuments(filter);
-
-    // Map users to replace _id with id
-    const usersWithId = users.map((user) => {
-      const userObj = user.toObject();
-      userObj.id = userObj._id;
-      delete userObj._id;
-      return userObj;
-    });
-
-    // Get statistics
-    const stats = await User.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalUsers: { $sum: 1 },
-          activeUsers: {
-            $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] },
-          },
-          blockedUsers: {
-            $sum: { $cond: [{ $eq: ["$status", "blocked"] }, 1, 0] },
-          },
-          adminUsers: {
-            $sum: { $cond: [{ $eq: ["$role", "admin"] }, 1, 0] },
-          },
-        },
-      },
-    ]);
-
-    res.json({
-      success: true,
-      message: "সকল ব্যবহারকারীর তালিকা",
-      data: {
-        users: usersWithId,
-        pagination: {
-          current: page,
-          pages: Math.ceil(total / limit),
-          total,
-        },
-        statistics: stats[0] || {
-          totalUsers: 0,
-          activeUsers: 0,
-          blockedUsers: 0,
-          adminUsers: 0,
-        },
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "ব্যবহারকারী তালিকা আনতে সমস্যা হয়েছে",
-      error: error.message,
-    });
-  }
-};
-
-// Get single user (Admin only)
-exports.getUserById = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .select("-password")
-      .populate("bookings")
-      .populate("visaApplications");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "ব্যবহারকারী খুঁজে পাওয়া যায়নি",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "ব্যবহারকারীর বিস্তারিত",
-      data: user,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "ব্যবহারকারী আনতে সমস্যা হয়েছে",
-      error: error.message,
-    });
-  }
-};
-
-// Update user status (Admin only)
-exports.updateUserStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    if (!["active", "blocked"].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "অবৈধ স্ট্যাটাস",
-      });
-    }
-
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    ).select("-password");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "ব্যবহারকারী খুঁজে পাওয়া যায়নি",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: `ব্যবহারকারী ${
-        status === "active" ? "সক্রিয় করা" : "ব্লক করা"
-      } হয়েছে`,
-      data: user,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "স্ট্যাটাস আপডেটে সমস্যা হয়েছে",
-      error: error.message,
-    });
-  }
-};
-
-// Delete user (Admin only)
-exports.deleteUser = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "ব্যবহারকারী খুঁজে পাওয়া যায়নি",
-      });
-    }
-
-    if (user.role === "admin") {
-      return res.status(400).json({
-        success: false,
-        message: "অ্যাডমিন ব্যবহারকারী মুছা যাবে না",
-      });
-    }
-
-    // Check for active bookings
-    const activeBookings = await require("../models/Booking").countDocuments({
-      user: req.params.id,
-      bookingStatus: { $in: ["pending", "confirmed"] },
-    });
-
-    if (activeBookings > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "সক্রিয় বুকিং থাকায় ব্যবহারকারী মুছা যাবে না",
-      });
-    }
-
-    await User.findByIdAndDelete(req.params.id);
-
-    res.json({
-      success: true,
-      message: "ব্যবহারকারী সফলভাবে মুছে ফেলা হয়েছে",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "ব্যবহারকারী মুছতে সমস্যা হয়েছে",
-      error: error.message,
-    });
-  }
-};
-
-// Create admin user (Super Admin only)
-exports.createAdmin = async (req, res) => {
-  try {
-    const { name, email, phone, password } = req.body;
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "এই ইমেইল দিয়ে ইতিমধ্যে অ্যাকাউন্ট রয়েছে",
-      });
-    }
-
-    const admin = await User.create({
-      name,
-      email,
-      phone,
-      password,
-      role: "admin",
-      status: "active",
-      emailVerified: true,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "অ্যাডমিন ব্যবহারকারী তৈরি হয়েছে",
-      user: {
-        id: admin._id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "অ্যাডমিন তৈরিতে সমস্যা হয়েছে",
-      error: error.message,
-    });
-  }
-};
+exports.publicUser = publicUser;

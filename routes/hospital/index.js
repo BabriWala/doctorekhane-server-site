@@ -9,6 +9,10 @@ const imagesRoutes = require("./imagesRoutes");
 const logoRoutes = require("./logoRoutes");
 
 const router = express.Router();
+const { protect, adminOnly } = require("../../middleware/auth");
+const { deleteHospital } = require("../../controllers/resourceController");
+const { optionalAuth } = require("../../middleware/auth");
+const { listReviews, createReview } = require("../../controllers/reviewController");
 
 router.use("/", queriesRoutes);
 
@@ -18,5 +22,8 @@ router.use("/", departmentsRoutes);
 router.use("/", hospitalBasicInfoRoutes);
 router.use("/", imagesRoutes);
 router.use("/", logoRoutes);
+router.get("/:id/reviews", listReviews("hospital"));
+router.post("/:id/reviews", optionalAuth, createReview("hospital"));
+router.delete("/:id", protect, adminOnly, deleteHospital);
 
 module.exports = router;

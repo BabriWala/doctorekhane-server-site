@@ -21,15 +21,13 @@ const updateProfessional = async (req, res) => {
 
     const prof = doctor.professional;
 
-    if (position) prof.position = position;
-    if (department) prof.department = department;
-    if (field) prof.field = field;
-    if (consultationFee) prof.consultationFee = consultationFee;
-    if (consultationFeeNew) prof.consultationFeeNew = consultationFeeNew;
-    if (status) prof.status = status;
-    if (order) prof.order = order;
-    if (licenseNumber) prof.licenseNumber = licenseNumber;
-    if (nidNumber) prof.nidNumber = nidNumber;
+    const updates = { position, department, field, consultationFee, consultationFeeNew, status, order, licenseNumber, nidNumber };
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) prof[key] = value;
+    });
+    for (const field of ["languages", "services", "conditionsTreated", "telemedicine", "featured", "totalPatients"]) {
+      if (req.body[field] !== undefined) doctor[field] = req.body[field];
+    }
 
     await doctor.save();
 

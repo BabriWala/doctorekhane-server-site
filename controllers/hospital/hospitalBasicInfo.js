@@ -12,6 +12,15 @@ const createHospitalBasicInfo = async (req, res) => {
     description,
     facilities,
     status,
+    phone,
+    email,
+    services,
+    insurance,
+    is24Hours,
+    emergencyPhone,
+    ambulancePhone,
+    bedCount,
+    visitingHours,
   } = req.body;
 
   try {
@@ -33,7 +42,15 @@ const createHospitalBasicInfo = async (req, res) => {
         description,
         facilities,
         status,
+        services,
+        insurance,
+        is24Hours,
+        emergencyPhone,
+        ambulancePhone,
+        bedCount,
+        visitingHours,
       },
+      contact: { phone, email },
     });
 
     await hospital.save();

@@ -5,14 +5,28 @@ const Hospital = require("../../models/Hospital");
 // ======================================
 const getAllHospitals = async (req, res) => {
   try {
-    const { city, type, status } = req.query;
+    const { city, type, department, insurance, search } = req.query;
 
     const query = {};
-    if (city) query["address.city"] = city;
+    const isAdmin = ["admin", "superadmin"].includes(req.user?.account?.role);
+    if (!isAdmin) query["basicInfo.status"] = "Active";
+    if (city) query["address.city"] = { $regex: String(city).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
     if (type) query["basicInfo.type"] = type;
-    if (status) query["basicInfo.status"] = status;
+    if (req.query.status && isAdmin) query["basicInfo.status"] = req.query.status;
+    if (department) query["departments.name"] = { $regex: String(department).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    if (insurance) query["basicInfo.insurance"] = insurance;
+    if (Number(req.query.minRating) > 0) query["basicInfo.ratingAverage"] = { $gte: Number(req.query.minRating) };
+    if (req.query.is24Hours !== undefined) query["basicInfo.is24Hours"] = req.query.is24Hours === "true";
+    if (search) {
+      const regex = new RegExp(String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      query.$or = [{ "basicInfo.name": regex }, { "basicInfo.description": regex }, { "address.street": regex }, { "address.city": regex }, { "departments.name": regex }, { "basicInfo.services": regex }];
+    }
 
-    const hospitals = await Hospital.find(query).sort({ createdAt: -1 });
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const sort = req.query.sort === "rating" ? { "basicInfo.ratingAverage": -1 } : req.query.sort === "name" ? { "basicInfo.name": 1 } : { createdAt: -1 };
+    const [hospitals, totalItems] = await Promise.all([Hospital.find(query).sort(sort).skip((page - 1) * limit).limit(limit), Hospital.countDocuments(query)]);
+    res.setHeader("X-Total-Count", String(totalItems));
     res.status(200).json(hospitals);
   } catch (error) {
     console.error(error);

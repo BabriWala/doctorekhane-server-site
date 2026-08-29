@@ -1,181 +1,66 @@
+const mongoose = require("mongoose");
 const Doctor = require("../../models/Doctor");
 
-// ======================================
-//  GET ALL DOCTORS WITH OPTIONAL FILTERS + PAGINATION
-// ======================================
-const getAllDoctors = async (req, res) => {
-  try {
-    const { department, field, search } = req.query;
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    // ✅ Admin check (temporary)
-    const isAdmin = req.query.admin === "true";
-
-    let match = {};
-
-    // 🔥 Public vs Admin
-    if (!isAdmin) {
-      match["professional.status"] = "Active";
-    }
-
-    // Filters
-    if (department) match["professional.department"] = department;
-    if (field) match["professional.field"] = field;
-
-    // Search
-    if (search) {
-      const regex = new RegExp(search, "i");
-
-      match.$or = [
-        { "personalDetails.firstName": regex },
-        { "personalDetails.middleName": regex },
-        { "personalDetails.lastName": regex },
-        { "personalDetails.email": regex },
-        { "personalDetails.phone": regex },
-      ];
-    }
-
-    // ✅ Total count
-    const totalItems = await Doctor.countDocuments(match);
-
-    // ✅ Aggregation
-    const doctors = await Doctor.aggregate([
-      { $match: match },
-
-      {
-        $addFields: {
-          id: "$_id", // ✅ convert _id → id
-          isActive: {
-            $cond: [{ $eq: ["$professional.status", "Active"] }, 1, 0],
-          },
-        },
-      },
-
-      {
-        $sort: {
-          "professional.order": 1, // 🔥 FIRST priority
-          isActive: -1, // 🔥 THEN Active first
-          createdAt: -1, // 🔥 latest
-        },
-      },
-
-      { $skip: skip },
-      { $limit: limit },
-
-      {
-        $project: {
-          _id: 0, // ❌ remove _id
-          isActive: 0, // optional: hide helper field
-        },
-      },
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      currentPage: page,
-      totalItems,
-      totalPages: Math.ceil(totalItems / limit),
-      count: doctors.length,
-      data: doctors,
-    });
-  } catch (error) {
-    console.error("Error fetching doctors:", error);
-    return res.status(500).json({ message: "Server error" });
+const getAllDoctors = async (req, res, next) => { try {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+  const match = {};
+  const isAdmin = ["admin", "superadmin"].includes(req.user?.account?.role);
+  if (!isAdmin) match["professional.status"] = "Active";
+  if (req.query.department) match["professional.department"] = req.query.department;
+  if (req.query.field) match["professional.field"] = req.query.field;
+  if (req.query.specialization) match["specialization.field"] = { $regex: escapeRegex(req.query.specialization), $options: "i" };
+  if (req.query.city) match["chambers.address.city"] = { $regex: escapeRegex(req.query.city), $options: "i" };
+  if (req.query.gender) match["personalDetails.gender"] = req.query.gender;
+  if (req.query.availableDay) match["chambers.day"] = req.query.availableDay;
+  if (req.query.telemedicine !== undefined) match.telemedicine = req.query.telemedicine === "true";
+  if (req.query.featured !== undefined) match.featured = req.query.featured === "true";
+  if (Number(req.query.minRating) > 0) match.ratingAverage = { $gte: Number(req.query.minRating) };
+  if (req.query.minExperience) match["personalDetails.totalExperience"] = { $gte: Number(req.query.minExperience) };
+  if (req.query.minFee || req.query.maxFee) {
+    match["professional.consultationFee"] = {};
+    if (req.query.minFee) match["professional.consultationFee"].$gte = Number(req.query.minFee);
+    if (req.query.maxFee) match["professional.consultationFee"].$lte = Number(req.query.maxFee);
   }
-};
-
-// ======================================
-//  GET SINGLE DOCTOR BY ID
-// ======================================
-const getDoctorById = async (req, res) => {
-  try {
-    const { doctorId } = req.params;
-    const doctor = await Doctor.findById(doctorId);
-
-    if (!doctor) return res.status(404).json({ message: "Doctor not found" });
-
-    return res.status(200).json(doctor);
-  } catch (error) {
-    console.error("Error fetching doctor by ID:", error);
-    return res.status(500).json({ message: "Server error" });
+  if (req.query.search) {
+    const regex = new RegExp(escapeRegex(req.query.search), "i");
+    match.$or = ["firstName", "middleName", "lastName", "email", "phone"].map((field) => ({ [`personalDetails.${field}`]: regex }));
+    match.$or.push({ "professional.department": regex }, { "professional.field": regex }, { "specialization.field": regex });
   }
-};
+  const sortOptions = {
+    rating: { ratingAverage: -1, reviewCount: -1 }, experience: { "personalDetails.totalExperience": -1 },
+    feeLow: { "professional.consultationFee": 1 }, feeHigh: { "professional.consultationFee": -1 }, newest: { createdAt: -1 },
+  };
+  const sort = sortOptions[req.query.sort] || { "professional.order": 1, ratingAverage: -1, createdAt: -1 };
+  const [doctors, totalItems] = await Promise.all([
+    Doctor.find(match).sort(sort).skip((page - 1) * limit).limit(limit).lean(),
+    Doctor.countDocuments(match),
+  ]);
+  res.json({ success: true, currentPage: page, totalItems, totalPages: Math.ceil(totalItems / limit), count: doctors.length, data: doctors.map((doctor) => ({ ...doctor, id: doctor._id })) });
+} catch (error) { next(error); } };
 
-// ======================================
-//  SEARCH DOCTORS BY SPECIALIZATION
-// ======================================
-const getDoctorsBySpecialization = async (req, res) => {
-  try {
-    const { specialization } = req.params;
+const getDoctorById = async (req, res, next) => { try {
+  const doctor = mongoose.isValidObjectId(req.params.doctorId) ? await Doctor.findById(req.params.doctorId) : await Doctor.findOne({ slug: req.params.doctorId });
+  if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+  res.json(doctor);
+} catch (error) { next(error); } };
 
-    const doctors = await Doctor.find({
-      specialization: {
-        $elemMatch: { field: { $regex: specialization, $options: "i" } },
-      },
-    });
+const getDoctorsBySpecialization = async (req, res, next) => { try {
+  const doctors = await Doctor.find({ "specialization.field": { $regex: escapeRegex(req.params.specialization), $options: "i" }, "professional.status": "Active" });
+  res.json(doctors);
+} catch (error) { next(error); } };
 
-    return res.status(200).json(doctors);
-  } catch (error) {
-    console.error("Error searching doctors by specialization:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
+const getDoctorsByChamberCity = async (req, res, next) => { try {
+  const doctors = await Doctor.find({ "chambers.address.city": { $regex: escapeRegex(req.params.city), $options: "i" }, "professional.status": "Active" });
+  res.json(doctors);
+} catch (error) { next(error); } };
 
-// ======================================
-//  SEARCH DOCTORS BY CHAMBER CITY
-// ======================================
-const getDoctorsByChamberCity = async (req, res) => {
-  try {
-    const { city } = req.params;
+const sortDoctorsByField = async (req, res, next) => { try {
+  const allowed = ["personalDetails.totalExperience", "professional.consultationFee", "professional.order", "ratingAverage"];
+  if (!allowed.includes(req.params.field)) return res.status(400).json({ success: false, message: `Invalid sort field. Allowed: ${allowed.join(", ")}` });
+  res.json(await Doctor.find({ "professional.status": "Active" }).sort({ [req.params.field]: 1 }));
+} catch (error) { next(error); } };
 
-    const doctors = await Doctor.find({
-      chambers: {
-        $elemMatch: { "address.city": { $regex: city, $options: "i" } },
-      },
-    });
-
-    return res.status(200).json(doctors);
-  } catch (error) {
-    console.error("Error searching doctors by chamber city:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-// ======================================
-//  SORT DOCTORS BY FIELD
-// ======================================
-const sortDoctorsByField = async (req, res) => {
-  try {
-    const { field } = req.params;
-
-    // Only allow sorting by known fields
-    const allowedFields = [
-      "personalDetails.totalExperience",
-      "professional.consultationFee",
-      "professional.order",
-    ];
-    if (!allowedFields.includes(field)) {
-      return res.status(400).json({
-        message: `Invalid sort field. Allowed: ${allowedFields.join(", ")}`,
-      });
-    }
-
-    const doctors = await Doctor.find().sort({ [field]: 1 }); // ascending by default
-
-    return res.status(200).json(doctors);
-  } catch (error) {
-    console.error("Error sorting doctors:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-module.exports = {
-  getAllDoctors,
-  getDoctorById,
-  getDoctorsBySpecialization,
-  getDoctorsByChamberCity,
-  sortDoctorsByField,
-};
+module.exports = { getAllDoctors, getDoctorById, getDoctorsBySpecialization, getDoctorsByChamberCity, sortDoctorsByField };

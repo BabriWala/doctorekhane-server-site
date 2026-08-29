@@ -16,18 +16,33 @@ const doctorRoutes = require("./routes/doctor");
 const hospitalRoutes = require("./routes/hospital");
 const bloodDonorRoutes = require("./routes/bloodDonor");
 const ambulanceRoutes = require("./routes/ambulance");
+const adminRoutes = require("./routes/admin");
+const reviewRoutes = require("./routes/reviews");
+const appointmentRoutes = require("./routes/appointments");
+const rateLimit = require("express-rate-limit");
 
 // Middleware
 const { errorHandler } = require("./middleware/errorHandler");
 const { createDefaultAdmin } = require("./utils/createAdmin");
 
 const app = express();
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
 
 // ─── STATIC & MIDDLEWARE ─────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(helmet());
 app.use(compression());
 app.use(cookieParser());
+app.use(
+  "/api",
+  rateLimit({
+    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    limit: Number(process.env.RATE_LIMIT_MAX) || 300,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+  }),
+);
 
 // Logging for dev
 if (process.env.NODE_ENV === "development") {
@@ -49,12 +64,9 @@ app.use(
   cors({
     credentials: true,
     origin: function (origin, callback) {
-      console.log("🌐 Incoming Origin:", origin);
-
       if (!origin) return callback(null, true); // Postman or curl
 
       if (allowedOrigins.includes(origin)) {
-        console.log("✔ Allowed:", origin);
         return callback(null, true);
       } else {
         console.warn("❌ Blocked by CORS:", origin);
@@ -84,13 +96,21 @@ app.use("/api/doctor", doctorRoutes);
 app.use("/api/hospital", hospitalRoutes);
 app.use("/api/blood-donor", bloodDonorRoutes);
 app.use("/api/ambulance", ambulanceRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/appointments", appointmentRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
-  res.json({
+  const databaseConnected = mongoose.connection.readyState === 1;
+  res.status(databaseConnected ? 200 : 503).json({
     success: true,
     message: "সার্ভার সফলভাবে চালু আছে",
-    data: { status: "healthy", timestamp: new Date().toISOString() },
+    data: {
+      status: databaseConnected ? "healthy" : "degraded",
+      database: databaseConnected ? "connected" : "disconnected",
+      timestamp: new Date().toISOString(),
+    },
   });
 });
 

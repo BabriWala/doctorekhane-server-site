@@ -2,7 +2,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-const uploadDir = "uploads/profilePhotos/";
+const uploadDir = "uploads/profilePhoto/";
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -23,8 +23,7 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   if (
-    file.mimetype.startsWith("image/") ||
-    file.mimetype === "application/pdf"
+    file.mimetype.startsWith("image/")
   ) {
     cb(null, true);
   } else {

@@ -9,6 +9,12 @@ const {
   logout,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/auth");
+const {
+  updateProfile,
+  uploadProfilePhoto,
+  deleteAccount,
+} = require("../controllers/userController");
+const profilePhotoUpload = require("../middleware/profilePhotoUpload");
 
 const router = express.Router();
 
@@ -29,5 +35,9 @@ router.get("/me", protect, getMe);
 router.put("/update-password", protect, updatePassword);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", logout);
+router.patch("/profile", protect, updateProfile);
+router.put("/profile", protect, updateProfile);
+router.post("/profile/photo", protect, profilePhotoUpload.single("photo"), uploadProfilePhoto);
+router.delete("/account", protect, deleteAccount);
 
 module.exports = router;

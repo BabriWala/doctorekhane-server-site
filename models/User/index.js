@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
         enum: ["admin", "superadmin", "user"],
         default: "user",
       },
-      password: { type: String },
+      password: { type: String, required: true, minlength: 8, select: false },
       resetPasswordToken: { type: String },
       resetPasswordExpire: { type: Date },
     },
@@ -38,6 +38,9 @@ const userSchema = new mongoose.Schema(
       enum: ["active", "blocked"],
       default: "active",
     },
+    passportNumber: { type: String, trim: true, uppercase: true },
+    profilePhoto: { type: String },
+    favoriteDoctors: [{ type: mongoose.Schema.Types.ObjectId, ref: "Doctor" }],
   },
   { timestamps: true },
 );
@@ -73,6 +76,7 @@ userSchema.methods.toJSON = function () {
 
   return user;
 };
+
 
 // ─── Export ─────────────────────────────────────────────
 

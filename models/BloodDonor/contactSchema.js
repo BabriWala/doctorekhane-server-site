@@ -12,6 +12,7 @@ const contactSchema = new mongoose.Schema(
       unique: true,
       sparse: true, // same for email
     },
+    website: { type: String },
   },
   { _id: false }
 );

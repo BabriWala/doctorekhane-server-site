@@ -8,6 +8,8 @@ const donationInfoRoutes = require("./donationInfoRoutes");
 const profilePictureRoutes = require("./profilePictureRoutes");
 
 const router = express.Router();
+const { protect, adminOnly } = require("../../middleware/auth");
+const { deleteBloodDonor } = require("../../controllers/resourceController");
 
 router.use("/", queriesRoutes);
 
@@ -16,5 +18,6 @@ router.use("/", basicInfoRoutes);
 router.use("/", contactRoutes);
 router.use("/", donationInfoRoutes);
 router.use("/", profilePictureRoutes);
+router.delete("/:id", protect, adminOnly, deleteBloodDonor);
 
 module.exports = router;

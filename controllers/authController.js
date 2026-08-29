@@ -15,7 +15,8 @@ const sendTokens = (user, res) => {
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
+    path: "/api/auth",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
@@ -42,14 +43,15 @@ exports.register = async (req, res) => {
     }
 
     const { name, email, phone, password } = req.body;
-    if (await User.findOne({ email })) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (await User.findOne({ "personalDetails.email": normalizedEmail })) {
       return res
         .status(400)
         .json({ success: false, message: "Email already exists" });
     }
 
     const user = await User.create({
-      personalDetails: { name, email, phone },
+      personalDetails: { name, email: normalizedEmail, phone },
       account: { password },
     });
     sendTokens(user, res);
@@ -64,7 +66,6 @@ exports.register = async (req, res) => {
 
 // Login Controller
 exports.login = async (req, res) => {
-  console.log("i n the login field ");
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -72,13 +73,11 @@ exports.login = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Email and password required" });
     }
-    console.log(email, password);
     // Find user and select account password for comparison
     const user = await User.findOne({ "personalDetails.email": email }).select(
       "+account.password"
     );
 
-    console.log(user);
 
     if (!user || !(await user.comparePassword(password))) {
       return res
@@ -94,11 +93,10 @@ exports.login = async (req, res) => {
 
     // Convert to JSON and explicitly include account (except password)
     const safeUser = user.toJSON();
-    console.log(safeUser);
     // Send JWT tokens and safe user object
     sendTokens(safeUser, res); // assuming sendTokens expects user object
   } catch (error) {
-    console.error("Login Error:", error);
+    console.error("Login failed:", error.message);
     res
       .status(500)
       .json({ success: false, message: "Login failed", error: error.message });
@@ -109,7 +107,6 @@ exports.refreshToken = async (req, res) => {
   // console.log(req.cookies.refreshToken);
   try {
     const token = req.cookies.refreshToken;
-    console.log(token);
     if (!token) {
       return res
         .status(401)
@@ -133,7 +130,7 @@ exports.refreshToken = async (req, res) => {
 
 // Logout
 exports.logout = (req, res) => {
-  res.clearCookie("refreshToken");
+  res.clearCookie("refreshToken", { path: "/api/auth" });
   res.json({ success: true, message: "Logged out" });
 };
 
@@ -162,7 +159,7 @@ exports.getMe = async (req, res) => {
 exports.updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const user = await User.findById(req.user.id).select("+password");
+    const user = await User.findById(req.user.id).select("+account.password");
 
     if (!(await user.comparePassword(currentPassword))) {
       return res
@@ -170,7 +167,13 @@ exports.updatePassword = async (req, res) => {
         .json({ success: false, message: "Current password is incorrect" });
     }
 
-    user.password = newPassword;
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 8 characters",
+      });
+    }
+    user.account.password = newPassword;
     await user.save();
 
     res.json({ success: true, message: "Password updated successfully" });
