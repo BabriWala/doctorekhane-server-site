@@ -19,6 +19,7 @@ const ambulanceRoutes = require("./routes/ambulance");
 const adminRoutes = require("./routes/admin");
 const reviewRoutes = require("./routes/reviews");
 const appointmentRoutes = require("./routes/appointments");
+const ambulanceRequestRoutes = require("./routes/ambulanceRequests");
 const rateLimit = require("express-rate-limit");
 
 // Middleware
@@ -99,6 +100,7 @@ app.use("/api/ambulance", ambulanceRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/appointments", appointmentRoutes);
+app.use("/api/ambulance-requests", ambulanceRequestRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
