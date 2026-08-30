@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "test": "jest --passWithNoTests",
     "migrate:production": "node scripts/migrate-production-fields.js",
+    "seed:production": "node scripts/seed-data.js",
     "smoke:production": "node scripts/production-smoke.js"
   },
   "dependencies": {
