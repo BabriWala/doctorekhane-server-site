@@ -2,6 +2,7 @@ const express = require("express");
 const {
   getAllDoctors,
   getDoctorById,
+  getDoctorFilterOptions,
   getDoctorsBySpecialization,
   getDoctorsByChamberCity,
   sortDoctorsByField,
@@ -12,8 +13,7 @@ const router = express.Router();
 // Get all doctors
 router.get("", optionalAuth, getAllDoctors);
 
-// Get doctor by ID
-router.get("/:doctorId", getDoctorById);
+router.get("/filter-options", getDoctorFilterOptions);
 
 // Search by specialization
 router.get("/specialization/:specialization", getDoctorsBySpecialization);
@@ -23,5 +23,8 @@ router.get("/chamber/location/:city", getDoctorsByChamberCity);
 
 // Sort doctors
 router.get("/sort/:field", sortDoctorsByField);
+
+// Keep the catch-all identifier route last so named routes remain reachable.
+router.get("/:doctorId", optionalAuth, getDoctorById);
 
 module.exports = router;

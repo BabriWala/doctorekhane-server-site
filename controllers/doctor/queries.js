@@ -42,9 +42,24 @@ const getAllDoctors = async (req, res, next) => { try {
 } catch (error) { next(error); } };
 
 const getDoctorById = async (req, res, next) => { try {
-  const doctor = mongoose.isValidObjectId(req.params.doctorId) ? await Doctor.findById(req.params.doctorId) : await Doctor.findOne({ slug: req.params.doctorId });
+  const isAdmin = ["admin", "superadmin"].includes(req.user?.account?.role);
+  const identifier = mongoose.isValidObjectId(req.params.doctorId) ? { _id: req.params.doctorId } : { slug: req.params.doctorId };
+  const doctor = await Doctor.findOne(isAdmin ? identifier : { ...identifier, "professional.status": "Active" });
   if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
   res.json(doctor);
+} catch (error) { next(error); } };
+
+const getDoctorFilterOptions = async (_req, res, next) => { try {
+  const active = { "professional.status": "Active" };
+  const [departments, fields, specializations, cities, languages] = await Promise.all([
+    Doctor.distinct("professional.department", active),
+    Doctor.distinct("professional.field", active),
+    Doctor.distinct("specialization.field", active),
+    Doctor.distinct("chambers.address.city", active),
+    Doctor.distinct("languages", active),
+  ]);
+  const clean = (values) => values.filter((value) => typeof value === "string" && value.trim()).sort((a, b) => a.localeCompare(b));
+  res.json({ success: true, data: { departments: clean(departments), fields: clean(fields), specializations: clean(specializations), cities: clean(cities), languages: clean(languages) } });
 } catch (error) { next(error); } };
 
 const getDoctorsBySpecialization = async (req, res, next) => { try {
@@ -63,4 +78,4 @@ const sortDoctorsByField = async (req, res, next) => { try {
   res.json(await Doctor.find({ "professional.status": "Active" }).sort({ [req.params.field]: 1 }));
 } catch (error) { next(error); } };
 
-module.exports = { getAllDoctors, getDoctorById, getDoctorsBySpecialization, getDoctorsByChamberCity, sortDoctorsByField };
+module.exports = { getAllDoctors, getDoctorById, getDoctorFilterOptions, getDoctorsBySpecialization, getDoctorsByChamberCity, sortDoctorsByField };
