@@ -24,7 +24,31 @@ exports.listRequests = async (req, res, next) => { try {
 exports.updateRequest = async (req, res, next) => { try {
   const allowed = ["status", "ambulance", "adminNotes", "scheduledAt"];
   const updates = {}; for (const field of allowed) if (req.body[field] !== undefined) updates[field] = req.body[field];
-  const request = await AmbulanceRequest.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true }).populate("ambulance");
+  const request = await AmbulanceRequest.findById(req.params.id);
   if (!request) return res.status(404).json({ success: false, message: "Ambulance request not found" });
+  if (updates.ambulance && !updates.status && request.status === "pending") updates.status = "assigned";
+  const nextAmbulanceId = updates.ambulance || request.ambulance;
+  const nextStatus = updates.status || request.status;
+  let selectedAmbulance = null;
+  if (nextAmbulanceId) {
+    selectedAmbulance = await Ambulance.findById(nextAmbulanceId);
+    if (!selectedAmbulance) return res.status(404).json({ success: false, message: "Ambulance not found" });
+    if (selectedAmbulance.basicInfo?.type !== request.serviceType) return res.status(409).json({ success: false, message: "The ambulance type does not match the requested service" });
+    const changingAmbulance = String(request.ambulance || "") !== String(selectedAmbulance._id);
+    if (changingAmbulance && !selectedAmbulance.availability?.isAvailable) return res.status(409).json({ success: false, message: "Selected ambulance is not available" });
+  }
+  if (["assigned", "dispatched"].includes(nextStatus) && !selectedAmbulance) return res.status(400).json({ success: false, message: "Assign an ambulance before changing this status" });
+
+  const previousAmbulanceId = request.ambulance;
+  request.set(updates);
+  await request.save();
+  if (previousAmbulanceId && String(previousAmbulanceId) !== String(request.ambulance || "")) {
+    await Ambulance.findByIdAndUpdate(previousAmbulanceId, { "availability.isAvailable": true });
+  }
+  if (selectedAmbulance) {
+    const isAvailable = ["completed", "cancelled"].includes(request.status);
+    await Ambulance.findByIdAndUpdate(selectedAmbulance._id, { "availability.isAvailable": isAvailable });
+  }
+  await request.populate("ambulance");
   res.json({ success: true, data: request });
 } catch (error) { next(error); } };
