@@ -5,7 +5,7 @@ const Hospital = require("../../models/Hospital");
 // ======================================
 const addDepartment = async (req, res) => {
   const { hospitalId } = req.params;
-  const { name } = req.body; // Expecting department name
+  const { name, services = [], doctors = [] } = req.body;
 
   try {
     const hospital = await Hospital.findById(hospitalId);
@@ -14,7 +14,7 @@ const addDepartment = async (req, res) => {
     }
 
     // Add new department
-    hospital.departments.push({ name });
+    hospital.departments.push({ name, services, doctors });
     await hospital.save();
 
     res.status(201).json({
@@ -32,7 +32,7 @@ const addDepartment = async (req, res) => {
 // ======================================
 const updateDepartment = async (req, res) => {
   const { hospitalId, departmentId } = req.params;
-  const { name } = req.body;
+  const { name, services, doctors } = req.body;
 
   try {
     const hospital = await Hospital.findById(hospitalId);
@@ -46,6 +46,8 @@ const updateDepartment = async (req, res) => {
     }
 
     department.name = name || department.name;
+    if (services !== undefined) department.services = services;
+    if (doctors !== undefined) department.doctors = doctors;
 
     await hospital.save();
 

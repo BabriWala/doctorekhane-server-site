@@ -6,6 +6,7 @@ const {
   searchHospitalsByType,
   sortHospitalsByField,
   getHospitalById,
+  getHospitalFilters,
 } = require("../../controllers/hospital/queries");
 const router = express.Router();
 
@@ -14,14 +15,10 @@ const router = express.Router();
 //  Optional filters: city, type, status
 // ======================================
 router.get("", optionalAuth, getAllHospitals);
+router.get("/filters/options", getHospitalFilters);
 
 // ======================================
 //  GET SINGLE HOSPITAL BY ID
-// ======================================
-router.get("/:hospitalId", getHospitalById);
-
-// ======================================
-//  SEARCH HOSPITALS BY CITY
 // ======================================
 router.get("/city/:city", searchHospitalsByCity);
 
@@ -35,5 +32,6 @@ router.get("/type/:type", searchHospitalsByType);
 //  Example fields: establishedYear, name
 // ======================================
 router.get("/sort/:field", sortHospitalsByField);
+router.get("/:hospitalId", optionalAuth, getHospitalById);
 
 module.exports = router;

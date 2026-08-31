@@ -21,6 +21,9 @@ const createHospitalBasicInfo = async (req, res) => {
     ambulancePhone,
     bedCount,
     visitingHours,
+    accreditations,
+    address,
+    website,
   } = req.body;
 
   try {
@@ -49,8 +52,10 @@ const createHospitalBasicInfo = async (req, res) => {
         ambulancePhone,
         bedCount,
         visitingHours,
+        accreditations,
       },
-      contact: { phone, email },
+      address,
+      contact: { phone, email, website },
     });
 
     await hospital.save();
@@ -78,13 +83,15 @@ const updateHospitalBasicInfo = async (req, res) => {
       return res.status(404).json({ message: "Hospital not found" });
     }
 
-    // Update the basicInfo fields
-    hospital.basicInfo = { ...hospital.basicInfo.toObject(), ...updates };
+    const allowed = ["name", "registrationNumber", "type", "establishedYear", "description", "facilities", "status", "services", "insurance", "accreditations", "is24Hours", "emergencyPhone", "ambulancePhone", "bedCount", "visitingHours"];
+    for (const field of allowed) if (updates[field] !== undefined) hospital.basicInfo[field] = updates[field];
+    if (updates.phone !== undefined) hospital.contact.phone = updates.phone;
+    if (updates.email !== undefined) hospital.contact.email = updates.email;
     await hospital.save();
 
     res.status(200).json({
       message: "Hospital basic information updated successfully",
-      basicInfo: hospital.basicInfo,
+      hospital,
     });
   } catch (error) {
     console.error(error);

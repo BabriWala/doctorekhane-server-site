@@ -25,7 +25,7 @@ const getAllHospitals = async (req, res) => {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const sort = req.query.sort === "rating" ? { "basicInfo.ratingAverage": -1 } : req.query.sort === "name" ? { "basicInfo.name": 1 } : { createdAt: -1 };
-    const [hospitals, totalItems] = await Promise.all([Hospital.find(query).sort(sort).skip((page - 1) * limit).limit(limit), Hospital.countDocuments(query)]);
+    const [hospitals, totalItems] = await Promise.all([Hospital.find(query).sort(sort).skip((page - 1) * limit).limit(limit).lean(), Hospital.countDocuments(query)]);
     res.setHeader("X-Total-Count", String(totalItems));
     res.status(200).json(hospitals);
   } catch (error) {
@@ -40,7 +40,8 @@ const getAllHospitals = async (req, res) => {
 const getHospitalById = async (req, res) => {
   const { hospitalId } = req.params;
   try {
-    const hospital = await Hospital.findById(hospitalId);
+    const isAdmin = ["admin", "superadmin"].includes(req.user?.account?.role);
+    const hospital = await Hospital.findOne({ _id: hospitalId, ...(isAdmin ? {} : { "basicInfo.status": "Active" }) }).populate("departments.doctors", "personalDetails professional specialization slug ratingAverage reviewCount");
     if (!hospital) {
       return res.status(404).json({ message: "Hospital not found" });
     }
@@ -49,6 +50,18 @@ const getHospitalById = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
+};
+
+const getHospitalFilters = async (_req, res) => {
+  try {
+    const active = { "basicInfo.status": "Active" };
+    const [cities, departments, insurance, types] = await Promise.all([
+      Hospital.distinct("address.city", active), Hospital.distinct("departments.name", active),
+      Hospital.distinct("basicInfo.insurance", active), Hospital.distinct("basicInfo.type", active),
+    ]);
+    const clean = (items) => items.filter(Boolean).sort((a, b) => a.localeCompare(b));
+    res.json({ success: true, data: { cities: clean(cities), departments: clean(departments), insurance: clean(insurance), types: clean(types) } });
+  } catch (error) { res.status(500).json({ success: false, message: "Failed to load hospital filters" }); }
 };
 
 // ======================================
@@ -110,4 +123,5 @@ module.exports = {
   searchHospitalsByCity,
   searchHospitalsByType,
   sortHospitalsByField,
+  getHospitalFilters,
 };

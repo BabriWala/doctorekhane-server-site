@@ -3,6 +3,7 @@ const Review = require("../models/Review");
 const Appointment = require("../models/Appointment");
 const Doctor = require("../models/Doctor");
 const BloodRequest = require("../models/BloodRequest");
+const Hospital = require("../models/Hospital");
 
 describe("production healthcare models", () => {
   test("review enforces rating and useful comment", async () => {
@@ -31,5 +32,12 @@ describe("production healthcare models", () => {
     await request.validate();
     expect(request.requestNumber).toMatch(/^BLD-/);
     expect(request.status).toBe("pending");
+  });
+
+  test("hospital supports customer-visible operational details", async () => {
+    const hospital = new Hospital({ basicInfo: { name: "Model Test Hospital", type: "Private", services: ["ICU"], facilities: ["Pharmacy"], insurance: ["Health Plan"], accreditations: ["ISO"], visitingHours: [{ day: "Sunday", open: "09:00", close: "17:00" }] }, address: { city: "Dhaka" }, contact: { phone: "01700000000", email: "hospital@example.com" }, departments: [{ name: "Cardiology", services: ["ECG"] }] });
+    await hospital.validate();
+    expect(hospital.departments[0].services).toEqual(["ECG"]);
+    expect(hospital.basicInfo.accreditations).toEqual(["ISO"]);
   });
 });

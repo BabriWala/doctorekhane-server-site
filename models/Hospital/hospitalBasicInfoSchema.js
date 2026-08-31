@@ -18,11 +18,12 @@ const hospitalBasicInfoSchema = new mongoose.Schema({
   services: [{ type: String, trim: true }],
   facilities: [{ type: String, trim: true }],
   insurance: [{ type: String, trim: true }],
+  accreditations: [{ type: String, trim: true }],
   is24Hours: { type: Boolean, default: false },
   emergencyPhone: { type: String },
   ambulancePhone: { type: String },
   bedCount: { type: Number, default: 0, min: 0 },
-  visitingHours: [{ day: String, open: String, close: String }],
+  visitingHours: [{ day: { type: String, trim: true }, open: { type: String, trim: true }, close: { type: String, trim: true } }],
   ratingAverage: { type: Number, default: 0, min: 0, max: 5 },
   reviewCount: { type: Number, default: 0, min: 0 },
 
