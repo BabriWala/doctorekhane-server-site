@@ -14,14 +14,16 @@ exports.createAppointment = async (req, res, next) => { try {
 } catch (error) { next(error); } };
 
 exports.myAppointments = async (req, res, next) => { try {
-  const appointments = await Appointment.find({ user: req.user._id }).populate("doctor", "personalDetails professional").sort({ appointmentDate: -1 });
-  res.json({ success: true, data: appointments });
+  const page = Math.max(Number(req.query.page) || 1, 1); const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100); const filter = { user: req.user._id };
+  const [appointments, totalItems] = await Promise.all([Appointment.find(filter).populate("doctor", "personalDetails professional").sort({ appointmentDate: -1 }).skip((page - 1) * limit).limit(limit), Appointment.countDocuments(filter)]);
+  res.json({ success: true, data: appointments, pagination: { currentPage: page, totalPages: Math.ceil(totalItems / limit), totalItems, pageSize: limit } });
 } catch (error) { next(error); } };
 
 exports.listAppointments = async (req, res, next) => { try {
   const filter = {}; if (req.query.status) filter.status = req.query.status; if (req.query.doctorId) filter.doctor = req.query.doctorId; if (req.query.date) { const start = new Date(req.query.date); const end = new Date(start); end.setDate(end.getDate() + 1); filter.appointmentDate = { $gte: start, $lt: end }; }
-  const appointments = await Appointment.find(filter).populate("doctor", "personalDetails professional").populate("user", "personalDetails").sort({ appointmentDate: 1, timeSlot: 1 }).limit(500);
-  res.json({ success: true, data: appointments });
+  const page = Math.max(Number(req.query.page) || 1, 1); const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 100);
+  const [appointments, totalItems] = await Promise.all([Appointment.find(filter).populate("doctor", "personalDetails professional").populate("user", "personalDetails").sort({ appointmentDate: 1, timeSlot: 1 }).skip((page - 1) * limit).limit(limit), Appointment.countDocuments(filter)]);
+  res.json({ success: true, data: appointments, pagination: { currentPage: page, totalPages: Math.ceil(totalItems / limit), totalItems, pageSize: limit } });
 } catch (error) { next(error); } };
 
 exports.updateAppointment = async (req, res, next) => { try {

@@ -67,7 +67,7 @@ exports.getAllUsers = async (req, res, next) => { try {
   const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 10, 1), 100);
   const filter = userFilter(req.query);
   const [users, total] = await Promise.all([User.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit), User.countDocuments(filter)]);
-  res.json({ success: true, data: { users: users.map(publicUser), pagination: { current: page, pages: Math.ceil(total / limit), total } } });
+  res.json({ success: true, data: { users: users.map(publicUser), pagination: { currentPage: page, totalPages: Math.ceil(total / limit), totalItems: total, pageSize: limit, from: total ? (page - 1) * limit + 1 : 0, to: Math.min(page * limit, total), total } } });
 } catch (error) { next(error); } };
 
 exports.getUserStats = async (req, res, next) => { try {

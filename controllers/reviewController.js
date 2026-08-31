@@ -57,8 +57,9 @@ exports.voteReview = async (req, res, next) => { try {
 
 exports.listForModeration = async (req, res, next) => { try {
   const filter = {}; if (req.query.status) filter.status = req.query.status; if (req.query.targetType) filter.targetType = req.query.targetType;
-  const reviews = await Review.find(filter).populate("target").sort({ createdAt: -1 }).limit(200);
-  res.json({ success: true, data: reviews });
+  const page = Math.max(Number(req.query.page) || 1, 1); const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 100);
+  const [reviews, totalItems] = await Promise.all([Review.find(filter).populate("target").sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit), Review.countDocuments(filter)]);
+  res.json({ success: true, data: reviews, pagination: { currentPage: page, totalPages: Math.ceil(totalItems / limit), totalItems, pageSize: limit } });
 } catch (error) { next(error); } };
 
 exports.moderateReview = async (req, res, next) => { try {

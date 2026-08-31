@@ -10,8 +10,10 @@ const profilePictureRoutes = require("./profilePictureRoutes");
 const router = express.Router();
 const { protect, adminOnly } = require("../../middleware/auth");
 const { deleteBloodDonor } = require("../../controllers/resourceController");
+const { registerBloodDonor } = require("../../controllers/bloodDonor/registration");
 
 router.use("/", queriesRoutes);
+router.post("/register", registerBloodDonor);
 
 router.use("/", addressRoutes);
 router.use("/", basicInfoRoutes);

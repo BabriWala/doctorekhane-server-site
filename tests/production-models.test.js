@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Review = require("../models/Review");
 const Appointment = require("../models/Appointment");
 const Doctor = require("../models/Doctor");
+const BloodRequest = require("../models/BloodRequest");
 
 describe("production healthcare models", () => {
   test("review enforces rating and useful comment", async () => {
@@ -23,5 +24,12 @@ describe("production healthcare models", () => {
     expect(doctor.slug).toMatch(/^ayesha-rahman-/);
     expect(doctor.ratingAverage).toBe(0);
     expect(doctor.services).toEqual([]);
+  });
+
+  test("blood request generates a trackable reference", async () => {
+    const request = new BloodRequest({ patientName: "Patient", bloodGroup: "O+", hospital: "General Hospital", requiredDate: new Date(Date.now() + 86400000), contactNumber: "01700000000", urgency: "urgent" });
+    await request.validate();
+    expect(request.requestNumber).toMatch(/^BLD-/);
+    expect(request.status).toBe("pending");
   });
 });

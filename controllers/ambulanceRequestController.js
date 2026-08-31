@@ -17,8 +17,9 @@ exports.createRequest = async (req, res, next) => { try {
 
 exports.listRequests = async (req, res, next) => { try {
   const filter = req.query.status ? { status: req.query.status } : {};
-  const requests = await AmbulanceRequest.find(filter).populate("ambulance").sort({ createdAt: -1 }).limit(500);
-  res.json({ success: true, data: requests });
+  const page = Math.max(Number(req.query.page) || 1, 1); const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 100);
+  const [requests, totalItems] = await Promise.all([AmbulanceRequest.find(filter).populate("ambulance").sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit), AmbulanceRequest.countDocuments(filter)]);
+  res.json({ success: true, data: requests, pagination: { currentPage: page, totalPages: Math.ceil(totalItems / limit), totalItems, pageSize: limit } });
 } catch (error) { next(error); } };
 
 exports.updateRequest = async (req, res, next) => { try {
