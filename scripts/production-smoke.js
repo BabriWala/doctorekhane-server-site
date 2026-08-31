@@ -30,6 +30,13 @@ const run = async () => {
     body: JSON.stringify({ email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD }),
   });
   if (!login.response.ok) throw new Error(`Login failed with ${login.response.status}`);
+  const refreshCookie = login.response.headers.get("set-cookie") || "";
+  if (
+    process.env.NODE_ENV === "production" &&
+    (!refreshCookie.includes("HttpOnly") || !refreshCookie.includes("Secure"))
+  ) {
+    throw new Error("Production refresh cookie is missing security attributes");
+  }
   const headers = { authorization: `Bearer ${login.body.accessToken}` };
   const [stats, users] = await Promise.all([
     request("/admin/stats", { headers }),
@@ -38,6 +45,7 @@ const run = async () => {
   if (!stats.response.ok || !users.response.ok) throw new Error(`Protected endpoints failed: stats=${stats.response.status}, users=${users.response.status}`);
   console.log(JSON.stringify({
     login: login.response.status, role: login.body.user?.account?.role,
+    refreshCookieSecure: refreshCookie.includes("HttpOnly") && refreshCookie.includes("Secure"),
     stats: stats.response.status, doctors: stats.body.doctors?.total, hospitals: stats.body.hospitals?.total,
     users: users.response.status, userFields: Object.keys(users.body.data?.users?.[0] || {}),
     discovery: doctorList.response.status, hospitals: hospitals.response.status,
