@@ -6,6 +6,13 @@ const {
 } = require("../middleware/auth");
 const jwt = require("jsonwebtoken");
 
+const refreshCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/api/auth",
+});
+
 // Helper to send tokens
 const sendTokens = (user, res) => {
   const accessToken = generateAccessToken(user._id);
@@ -13,10 +20,7 @@ const sendTokens = (user, res) => {
 
   // Store refresh token in httpOnly cookie
   res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/auth",
+    ...refreshCookieOptions(),
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
@@ -73,8 +77,9 @@ exports.login = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Email and password required" });
     }
-    // Find user and select account password for comparison
-    const user = await User.findOne({ "personalDetails.email": email }).select(
+    // Email addresses are case-insensitive and stored normalized.
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ "personalDetails.email": normalizedEmail }).select(
       "+account.password"
     );
 
@@ -121,6 +126,12 @@ exports.refreshToken = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
+    if (user.status === "blocked") {
+      return res
+        .status(401)
+        .json({ success: false, message: "Account blocked" });
+    }
+
     const newAccessToken = generateAccessToken(user._id);
     res.json({ success: true, accessToken: newAccessToken });
   } catch (error) {
@@ -130,7 +141,7 @@ exports.refreshToken = async (req, res) => {
 
 // Logout
 exports.logout = (req, res) => {
-  res.clearCookie("refreshToken", { path: "/api/auth" });
+  res.clearCookie("refreshToken", refreshCookieOptions());
   res.json({ success: true, message: "Logged out" });
 };
 
