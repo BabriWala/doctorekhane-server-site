@@ -6,7 +6,7 @@ const BloodDonor = require("../../models/BloodDonor");
 const updateBloodDonorDonationInfo = async (req, res) => {
   try {
     const { donorId } = req.params;
-    const { lastDonationDate, isActive, notes } = req.body;
+    const { lastDonationDate, totalDonations, isActive, notes } = req.body;
 
     // Find the donor by ID
     const donor = await BloodDonor.findById(donorId);
@@ -18,10 +18,10 @@ const updateBloodDonorDonationInfo = async (req, res) => {
     }
 
     // Update only provided fields
-    if (lastDonationDate)
-      donor.donationInfo.lastDonationDate = lastDonationDate;
+    if (lastDonationDate !== undefined) donor.donationInfo.lastDonationDate = lastDonationDate || undefined;
+    if (totalDonations !== undefined) donor.donationInfo.totalDonations = Number(totalDonations);
     if (typeof isActive === "boolean") donor.donationInfo.isActive = isActive;
-    if (notes) donor.donationInfo.notes = notes;
+    if (notes !== undefined) donor.donationInfo.notes = notes;
 
     await donor.save();
 
