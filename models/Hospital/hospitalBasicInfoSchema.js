@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 // --- Hospital Basic Info Schema ---
 const hospitalBasicInfoSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
-  registrationNumber: { type: String, unique: true },
+  registrationNumber: { type: String, unique: true, sparse: true, trim: true },
   type: {
     type: String,
     enum: ["Public", "Private", "Specialized", "Clinic"],

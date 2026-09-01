@@ -22,6 +22,14 @@ exports.listRequests = async (req, res, next) => { try {
   res.json({ success: true, data: requests, pagination: { currentPage: page, totalPages: Math.ceil(totalItems / limit), totalItems, pageSize: limit } });
 } catch (error) { next(error); } };
 
+exports.trackRequest = async (req, res, next) => { try {
+  const requestNumber = String(req.query.requestNumber || "").trim().toUpperCase(); const contactNumber = String(req.query.contactNumber || "").trim();
+  if (!requestNumber || !contactNumber) return res.status(400).json({ success: false, message: "Request number and contact number are required" });
+  const item = await AmbulanceRequest.findOne({ requestNumber, contactNumber }).populate("ambulance");
+  if (!item) return res.status(404).json({ success: false, message: "No matching ambulance request found" });
+  res.json({ success: true, data: item });
+} catch (error) { next(error); } };
+
 exports.updateRequest = async (req, res, next) => { try {
   const allowed = ["status", "ambulance", "adminNotes", "scheduledAt"];
   const updates = {}; for (const field of allowed) if (req.body[field] !== undefined) updates[field] = req.body[field];

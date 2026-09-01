@@ -14,6 +14,14 @@ exports.listBloodRequests = async (req, res, next) => { try {
   res.json({ success: true, data: items, pagination: { currentPage: page, totalPages: Math.ceil(totalItems / limit), totalItems, pageSize: limit } });
 } catch (error) { next(error); } };
 
+exports.trackBloodRequest = async (req, res, next) => { try {
+  const requestNumber = String(req.query.requestNumber || "").trim().toUpperCase(); const contactNumber = String(req.query.contactNumber || "").trim();
+  if (!requestNumber || !contactNumber) return res.status(400).json({ success: false, message: "Request number and contact number are required" });
+  const item = await BloodRequest.findOne({ requestNumber, contactNumber });
+  if (!item) return res.status(404).json({ success: false, message: "No matching blood request found" });
+  res.json({ success: true, data: item });
+} catch (error) { next(error); } };
+
 exports.updateBloodRequest = async (req, res, next) => { try {
   const updates = {}; for (const field of ["status", "adminNotes"]) if (req.body[field] !== undefined) updates[field] = req.body[field];
   const request = await BloodRequest.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });

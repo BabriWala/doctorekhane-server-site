@@ -30,7 +30,16 @@ exports.updateProfile = async (req, res, next) => { try {
   if (validationErrors(req, res)) return;
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ success: false, message: "User not found" });
-  for (const field of ["name", "phone"]) if (req.body[field] !== undefined) user.personalDetails[field] = req.body[field];
+  for (const field of ["name", "phone"]) if (req.body[field] !== undefined) user.personalDetails[field] = String(req.body[field]).trim();
+  if (req.body.email !== undefined) {
+    const email = String(req.body.email).trim().toLowerCase();
+    if (await User.exists({ "personalDetails.email": email, _id: { $ne: user._id } })) return res.status(409).json({ success: false, message: "Email already exists" });
+    user.personalDetails.email = email;
+  }
+  if (req.body.dob !== undefined) user.personalDetails.dob = req.body.dob ? new Date(req.body.dob) : null;
+  if (req.body.address && typeof req.body.address === "object") {
+    for (const field of ["street", "city", "state", "postalCode", "country"]) if (req.body.address[field] !== undefined) user.personalDetails.address[field] = String(req.body.address[field]).trim();
+  }
   if (req.body.passportNumber !== undefined) user.passportNumber = req.body.passportNumber;
   await user.save();
   res.json({ success: true, message: "Profile updated", data: publicUser(user), user: publicUser(user) });

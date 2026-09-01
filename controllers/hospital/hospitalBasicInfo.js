@@ -39,9 +39,9 @@ const createHospitalBasicInfo = async (req, res) => {
     const hospital = new Hospital({
       basicInfo: {
         name,
-        registrationNumber,
+        registrationNumber: String(registrationNumber || "").trim() || undefined,
         type,
-        establishedYear,
+        establishedYear: establishedYear === "" || establishedYear == null ? undefined : Number(establishedYear),
         description,
         facilities,
         status,
@@ -66,6 +66,7 @@ const createHospitalBasicInfo = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (error?.code === 11000) return res.status(409).json({ message: "Hospital name or registration number already exists" });
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -84,9 +85,11 @@ const updateHospitalBasicInfo = async (req, res) => {
     }
 
     const allowed = ["name", "registrationNumber", "type", "establishedYear", "description", "facilities", "status", "services", "insurance", "accreditations", "is24Hours", "emergencyPhone", "ambulancePhone", "bedCount", "visitingHours"];
-    for (const field of allowed) if (updates[field] !== undefined) hospital.basicInfo[field] = updates[field];
+    for (const field of allowed) if (updates[field] !== undefined) hospital.basicInfo[field] = field === "registrationNumber" ? (String(updates[field] || "").trim() || undefined) : field === "establishedYear" ? (updates[field] === "" ? undefined : Number(updates[field])) : updates[field];
     if (updates.phone !== undefined) hospital.contact.phone = updates.phone;
     if (updates.email !== undefined) hospital.contact.email = updates.email;
+    if (updates.website !== undefined) hospital.contact.website = updates.website;
+    if (updates.address && typeof updates.address === "object") hospital.address.set(updates.address);
     await hospital.save();
 
     res.status(200).json({
@@ -95,6 +98,7 @@ const updateHospitalBasicInfo = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (error?.code === 11000) return res.status(409).json({ message: "Hospital name or registration number already exists" });
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

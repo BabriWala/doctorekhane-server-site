@@ -19,6 +19,15 @@ exports.myAppointments = async (req, res, next) => { try {
   res.json({ success: true, data: appointments, pagination: { currentPage: page, totalPages: Math.ceil(totalItems / limit), totalItems, pageSize: limit } });
 } catch (error) { next(error); } };
 
+exports.trackAppointment = async (req, res, next) => { try {
+  const number = String(req.query.appointmentNumber || "").trim().toUpperCase();
+  const phone = String(req.query.phone || "").trim();
+  if (!number || !phone) return res.status(400).json({ success: false, message: "Appointment number and phone are required" });
+  const item = await Appointment.findOne({ appointmentNumber: number, "patient.phone": phone }).populate("doctor", "personalDetails professional");
+  if (!item) return res.status(404).json({ success: false, message: "No matching appointment found" });
+  res.json({ success: true, data: item });
+} catch (error) { next(error); } };
+
 exports.listAppointments = async (req, res, next) => { try {
   const filter = {}; if (req.query.status) filter.status = req.query.status; if (req.query.doctorId) filter.doctor = req.query.doctorId; if (req.query.date) { const start = new Date(req.query.date); const end = new Date(start); end.setDate(end.getDate() + 1); filter.appointmentDate = { $gte: start, $lt: end }; }
   const page = Math.max(Number(req.query.page) || 1, 1); const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 100);
