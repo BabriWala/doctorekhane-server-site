@@ -41,7 +41,11 @@ const getHospitalById = async (req, res) => {
   const { hospitalId } = req.params;
   try {
     const isAdmin = ["admin", "superadmin"].includes(req.user?.account?.role);
-    const hospital = await Hospital.findOne({ _id: hospitalId, ...(isAdmin ? {} : { "basicInfo.status": "Active" }) }).populate("departments.doctors", "personalDetails professional specialization slug ratingAverage reviewCount");
+    const hospital = await Hospital.findOne({ _id: hospitalId, ...(isAdmin ? {} : { "basicInfo.status": "Active" }) }).populate({
+      path: "departments.doctors",
+      select: "personalDetails professional specialization slug ratingAverage reviewCount telemedicine",
+      match: isAdmin ? {} : { "professional.status": "Active" },
+    });
     if (!hospital) {
       return res.status(404).json({ message: "Hospital not found" });
     }
