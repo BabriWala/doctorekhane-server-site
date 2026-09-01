@@ -9,6 +9,7 @@
     "test": "jest --passWithNoTests",
     "migrate:production": "node scripts/migrate-production-fields.js",
     "seed:production": "node scripts/seed-data.js",
+    "seed:blogs": "node scripts/seed-blogs.js",
     "smoke:production": "node scripts/production-smoke.js"
   },
   "dependencies": {
