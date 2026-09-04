@@ -73,8 +73,18 @@ exports.updateRequest = async (req, res, next) => { try {
   if (["assigned", "dispatched"].includes(nextStatus) && !selectedAmbulance) return res.status(400).json({ success: false, message: "Assign an ambulance before changing this status" });
 
   const previousAmbulanceId = request.ambulance;
+  let claimed = false;
+  if (selectedAmbulance && ["assigned", "dispatched"].includes(nextStatus) &&
+      (!["assigned", "dispatched"].includes(request.status) || String(previousAmbulanceId) !== String(selectedAmbulance._id))) {
+    const reservation = await Ambulance.findOneAndUpdate({ _id: selectedAmbulance._id, "availability.isAvailable": true }, { "availability.isAvailable": false }, { new: true });
+    if (!reservation) return res.status(409).json({ success: false, message: "Another request has reserved this ambulance" });
+    claimed = true;
+  }
   request.set(updates);
-  await request.save();
+  try { await request.save(); } catch (error) {
+    if (claimed) await Ambulance.findByIdAndUpdate(selectedAmbulance._id, { "availability.isAvailable": true });
+    throw error;
+  }
   if (previousAmbulanceId && String(previousAmbulanceId) !== String(request.ambulance || "")) {
     const busy = await AmbulanceRequest.exists({ ambulance: previousAmbulanceId, status: { $in: ["assigned", "dispatched"] } });
     await Ambulance.findByIdAndUpdate(previousAmbulanceId, { "availability.isAvailable": !busy });

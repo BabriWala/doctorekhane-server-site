@@ -5,10 +5,13 @@ const { isAvailableSlot } = require("../utils/appointmentSlots");
 exports.createAppointment = async (req, res, next) => { try {
   const doctor = await Doctor.findOne({ _id: req.body.doctorId, "professional.status": "Active" });
   if (!doctor) return res.status(404).json({ success: false, message: "Active doctor not found" });
-  const appointmentDate = new Date(req.body.appointmentDate);
+  let appointmentDate = new Date(req.body.appointmentDate);
   if (Number.isNaN(appointmentDate.getTime()) || appointmentDate < new Date()) return res.status(400).json({ success: false, message: "A future appointment date is required" });
   if (!req.body.patientName || !req.body.patientPhone || !req.body.timeSlot) return res.status(400).json({ success: false, message: "Patient name, phone, and time slot are required" });
   if (!isAvailableSlot(doctor.chambers, appointmentDate, req.body.timeSlot, req.body.chamberId)) return res.status(400).json({ success: false, message: "Choose a time within the doctor's published chamber hours" });
+  const localDay = appointmentDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+  appointmentDate = new Date(`${localDay}T${req.body.timeSlot}:00+06:00`);
+  if (appointmentDate <= new Date()) return res.status(400).json({ success: false, message: 'A future appointment time is required' });
   const collision = await Appointment.exists({ doctor: doctor._id, appointmentDate, timeSlot: req.body.timeSlot, status: { $in: ["pending", "confirmed"] } });
   if (collision) return res.status(409).json({ success: false, message: "This appointment slot is no longer available" });
   const appointment = await Appointment.create({ doctor: doctor._id, user: req.user?._id || null, chamberId: req.body.chamberId, patient: { name: req.body.patientName, phone: req.body.patientPhone, email: req.body.patientEmail, age: req.body.patientAge, gender: req.body.patientGender }, appointmentDate, timeSlot: req.body.timeSlot, reason: req.body.reason, consultationType: req.body.consultationType, fee: req.body.consultationType === "video" ? doctor.professional?.consultationFeeNew : doctor.professional?.consultationFee });
@@ -43,11 +46,15 @@ exports.updateAppointment = async (req, res, next) => { try {
   if (updates.appointmentDate !== undefined || updates.timeSlot !== undefined) {
     const existing = await Appointment.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: "Appointment not found" });
-    const date = new Date(updates.appointmentDate ?? existing.appointmentDate);
+    let date = new Date(updates.appointmentDate ?? existing.appointmentDate);
     const time = updates.timeSlot ?? existing.timeSlot;
     if (Number.isNaN(date.getTime()) || date <= new Date()) return res.status(400).json({ success: false, message: "A future appointment date is required" });
     const doctor = await Doctor.findById(existing.doctor);
     if (!doctor || !isAvailableSlot(doctor.chambers, date, time, existing.chamberId)) return res.status(400).json({ success: false, message: "Choose a time within the doctor's published chamber hours" });
+    date = new Date(`${date.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' })}T${time}:00+06:00`);
+    if (date <= new Date()) return res.status(400).json({ success: false, message: 'A future appointment time is required' });
+    updates.appointmentDate = date;
+    updates.timeSlot = time;
     const collision = await Appointment.exists({ _id: { $ne: existing._id }, doctor: existing.doctor, appointmentDate: date, timeSlot: time, status: { $in: ["pending", "confirmed"] } });
     if (collision) return res.status(409).json({ success: false, message: "This appointment slot is no longer available" });
   }

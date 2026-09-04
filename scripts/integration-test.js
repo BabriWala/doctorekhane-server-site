@@ -9,6 +9,7 @@ async function run() {
     return { status:response.status, body:await response.json(), cookie:response.headers.get('set-cookie')?.split(';')[0] };
   }
   try {
+    await Promise.all([require('../models/Appointment').init(),require('../models/AmbulanceRequest').init()]);
     const login = await request('/auth/login','POST',{email:'admin@example.test',password:'TestOnly!12345'});
     check(login.status === 200 && login.body.accessToken, 'admin login'); const admin = login.body.accessToken;
     check((await request('/auth/refresh-token','POST',{},null,login.cookie)).status === 200, 'cookie refresh without in-memory token');
@@ -70,6 +71,12 @@ async function run() {
     const tracked = await request(`/appointments/track?appointmentNumber=${appointment.body.data.appointmentNumber}&phone=01700000002`);
     check(tracked.body.data.status === 'confirmed', 'patient tracks confirmed appointment');
     check((await request(`/appointments/${appointment.body.data._id}/cancel`,'PATCH',{},patient)).status === 200, 'patient cancels own appointment');
+    const races = await Promise.all([0,1].map(()=>request('/appointments','POST',{...booking,timeSlot:'12:00'},patient)));
+    check(races.filter(x=>x.status===201).length===1 && races.filter(x=>x.status===409).length===1,'simultaneous slot booking has one winner');
+    const winner=races.find(x=>x.status===201).body.data;
+    check(winner.appointmentDate.endsWith('06:00:00.000Z'),'booking timestamp normalized to selected Dhaka slot');
+    const moved=await request(`/appointments/${winner._id}`,'PATCH',{timeSlot:'13:00'},admin);
+    check(moved.status===200 && moved.body.data.appointmentDate.endsWith('07:00:00.000Z'),'reschedule timestamp follows changed time slot');
     const ambulance = await require('../models/Ambulance').create({basicInfo:{vehicleNumber:'TEST-001',type:'Basic',driverName:'Test Driver'},contact:{phone:'01700000005'},availability:{isAvailable:true}});
     const ride = await request('/ambulance-requests','POST',{pickupLocation:'Test Road',dropLocation:'Test Hospital',serviceType:'Basic',scheduledAt:`${day}T11:00:00+06:00`,patientName:'Test Patient',contactNumber:'01700000002'});
     check(ride.status === 201, 'ambulance booking');
@@ -82,6 +89,11 @@ async function run() {
     check((await request('/ambulance-requests/track/action','POST',{...rideCredentials,action:'accept'})).body.data.customerAcceptedAt, 'patient accepts assigned ambulance');
     check((await request('/ambulance-requests/track/action','POST',{...rideCredentials,action:'cancel'})).body.data.status === 'cancelled', 'patient cancels ambulance');
     check((await require('../models/Ambulance').findById(ambulance._id)).availability.isAvailable, 'cancelled ambulance becomes available');
+    const parallelRide=await require('../models/AmbulanceRequest').create({pickupLocation:'Race Road',dropLocation:'Test Hospital',serviceType:'Basic',scheduledAt:new Date(`${day}T11:00:00+06:00`),patientName:'Race Patient',contactNumber:'01700000014'});
+    const assigned=await Promise.all([competing._id,parallelRide._id].map(id=>request(`/ambulance-requests/${id}`,'PATCH',{ambulance:String(ambulance._id),status:'assigned'},admin)));
+    check(assigned.filter(x=>x.status===200).length===1&&assigned.filter(x=>x.status===409).length===1,'simultaneous ambulance assignments have one winner');
+    const active=assigned.find(x=>x.status===200).body.data;
+    await request(`/ambulance-requests/${active._id}`,'PATCH',{status:'completed'},admin);
     check((await request(`/ambulance/${ambulance._id}`,'DELETE',null,admin)).status === 200, 'admin removes ambulance');
     const blood = await request('/blood-requests','POST',{patientName:'Test Patient',bloodGroup:'A+',hospital:'Test Hospital',requiredDate:day,contactNumber:'01700000002',urgency:'normal'});
     check(blood.status === 201, 'blood request saved');

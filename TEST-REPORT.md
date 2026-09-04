@@ -10,7 +10,7 @@ For simultaneous role-isolated browser sessions, use separate browser profiles o
 
 ## Executed API/database checks
 
-60 assertions passed in scripts/integration-test.js; 12 unit tests passed across four Jest suites.
+64 assertions passed in scripts/integration-test.js; 36 portal API/security assertions passed in scripts/portal-test.js; 12 unit tests passed across four Jest suites.
 
 | Workflow | Evidence |
 | --- | --- |
@@ -56,13 +56,13 @@ Client localhost:4013; admin localhost:4011; isolated API localhost:4012.
 
 ## Not certified / remaining work
 
-- Several legacy doctor dashboards (patients, prescriptions, analytics, profile, availability) contain static demo arrays. They are not a working doctor self-service portal. The backend currently has only user/admin/superadmin roles, without a doctor-account ownership mapping. Implementing that needs an explicit ownership/provisioning decision; do not expose real patient records through these pages as-is.
-- Legacy patient messages, prescriptions, reminders and history were not validated as live workflows. No financial payment processor or financial-donation workflow was found or tested; blood donation history is covered.
-- Mobile viewport override was requested but measured width remained 1280. Mobile layout verification is incomplete, not passed.
-- No load/stress test or simultaneous race test was run. Ambulance conflict tests are sequential; database-level concurrent reservation guarantees need separate testing/design.
+- Legacy doctor/patient dashboard placeholders have been replaced with scoped database workflows. Admins explicitly link doctor accounts to profiles. The portal includes appointments, patient encounters, prescriptions with private attachments, messages, chamber editing, reviews, statistics, saved doctors and in-app reminders. The 36 portal checks cover cross-account denials, linking, validation, downloads, persistence and pagination.
+- No financial payment processor or financial-donation workflow was found or tested; blood donation history is covered. Financial donations need a payment-provider/recipient decision and credentials, not a fake success flow. Reminders are in-app only and messages poll every 20 seconds; no SMS/email or emergency monitoring is promised.
+- Mobile viewport override was retried on a newly created tab at requested 390x844; measured width still remained 1280. Mobile layout verification is incomplete, not passed.
+- Concurrent two-request slot booking and ambulance assignment tests pass, with one winner and one conflict. Unique partial indexes protect active bookings. This is not load/stress or crash-recovery testing. Before deployment run `node scripts/booking-preflight.js`: it is read-only, prints counts only, and exits 2 if historical conflicts or non-normalized active dates need a controlled migration. Do not automatically discard or cancel historical bookings.
 - Native phone calls, WhatsApp delivery and sharing to third-party apps were not executed.
 - File-upload persistence was API-tested, not browser file-picker tested. Full browser coverage of hospital review moderation, ambulance lifecycle, blood request lifecycle and every admin edit form remains incomplete (API coverage is listed above).
-- Newly fixed patient-profile fields were tested in the API/database suite; the long-running browser sandbox was started before that schema patch, so it is not counted as browser verification of the corrected patient profile.
+- A fresh browser sandbox exercised doctor login, dashboard counts, appointment confirmation, doctor prescription entry and patient visibility after logout/login, plus patient message submission/list persistence. Patient DOB (1995-02-03), street and city were saved through the browser, then verified on fresh account navigation in a new tab.
 - Historical hospital rating summaries require a controlled recalculation before existing production records can be assumed correct; this audit did not mutate production data.
 - Admin production builds explicitly skip TypeScript validation; a build pass is not a type-check pass.
 - These new audit fixes are local until separately pushed/deployed. Previously deployed commits are not evidence that these new fixes are live.

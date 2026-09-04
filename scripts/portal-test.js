@@ -1,0 +1,66 @@
+const assert=require('node:assert/strict');
+const {startSandbox}=require('./test-sandbox');
+async function run(){
+  const sandbox=await startSandbox(); let passed=0;
+  const check=(ok,label)=>{assert.ok(ok,label);console.log('PASS '+label);passed++;};
+  async function request(path,method='GET',body,token){const r=await fetch(sandbox.base+path,{method,headers:{'content-type':'application/json',...(token?{authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return{status:r.status,body:await r.json()};}
+  try{
+    const admin=(await request('/auth/login','POST',{email:'admin@example.test',password:'TestOnly!12345'})).body.accessToken;
+    const patient=(await request('/auth/register','POST',{name:'Portal Patient',email:'portal-patient@example.test',phone:'01700000101',password:'TestOnly!12345'})).body.accessToken;
+    const stranger=(await request('/auth/register','POST',{name:'Other Patient',email:'other@example.test',phone:'01700000102',password:'TestOnly!12345'})).body.accessToken;
+    const provisioning={email:'portal-doctor@example.test',name:'Portal Doctor',phone:'01700000103',password:'TestOnly!12345',doctorId:String(sandbox.doctor._id)};
+    check((await request('/portal/admin/doctor-accounts','POST',provisioning,patient)).status===403,'patient cannot provision doctor accounts');
+    check((await request('/portal/admin/doctor-accounts','POST',provisioning,admin)).status===201,'admin creates and links doctor account');
+    const doc=(await request('/auth/login','POST',{email:provisioning.email,password:provisioning.password})).body.accessToken;
+    check((await request('/portal/profile','GET',null,doc)).body.data.id===provisioning.doctorId,'doctor sees linked profile');
+    check((await request('/portal/profile','GET',null,patient)).status===403,'patient cannot access doctor profile editor');
+    check((await request('/portal/admin/doctor-accounts','POST',{...provisioning,email:'duplicate@example.test'},admin)).status===409,'doctor profile cannot be linked to another account');
+    check((await request('/portal/profile','PATCH',{about:'Updated by doctor',consultationFee:600,'professional.status':'Inactive'},doc)).status===200,'doctor updates allowed profile fields');
+    const saved=(await request('/doctor/'+provisioning.doctorId)).body;
+    check(saved.personalDetails.about==='Updated by doctor'&&saved.professional.status==='Active','profile updates sync publicly without changing publication status');
+    check((await request('/portal/profile','PATCH',{consultationFee:-1},doc)).status===400,'negative fee rejected');
+    check((await request('/portal/profile','PATCH',{chambers:[{day:'Monday',from:'17:00',to:'09:00',chamberName:'Bad'}]},doc)).status===400,'invalid chamber range rejected');
+    const date=new Date();date.setDate(date.getDate()+3);const day=date.toISOString().slice(0,10);
+    const booked=await request('/appointments','POST',{doctorId:provisioning.doctorId,patientName:'Portal Patient',patientPhone:'01700000101',appointmentDate:`${day}T10:00:00+06:00`,timeSlot:'10:00'},patient);
+    check(booked.status===201,'patient creates portal appointment');const id=booked.body.data._id;
+    check((await request('/portal/appointments','GET',null,doc)).body.data.length===1,'doctor lists own appointment');
+    check((await request('/portal/appointments','GET',null,stranger)).body.data.length===0,'other patient sees no appointment');
+    check((await request('/portal/appointments/'+id,'PATCH',{status:'confirmed'},patient)).status===403,'patient cannot use doctor status endpoint');
+    check((await request('/portal/appointments/'+id,'PATCH',{status:'confirmed'},doc)).body.data.status==='confirmed','doctor confirms own appointment');
+    check((await request('/portal/appointments','GET',null,patient)).body.data[0].status==='confirmed','patient receives doctor status update');
+    check((await request('/portal/stats','GET',null,doc)).body.data.upcoming===1,'doctor analytics reflect saved records');
+    const second=await require('../models/Doctor').create({personalDetails:{firstName:'Other',lastName:'Doctor',gender:'Male',email:'other-doctor@example.test',phone:'01700000104'}});
+    await request('/portal/admin/doctor-accounts','POST',{...provisioning,email:'second-doctor@example.test',phone:'01700000105',doctorId:String(second._id)},admin);
+    const otherDoc=(await request('/auth/login','POST',{email:'second-doctor@example.test',password:provisioning.password})).body.accessToken;
+    check((await request('/portal/appointments/'+id,'PATCH',{status:'cancelled'},otherDoc)).status===404,'other doctor cannot update appointment');
+    check((await request(`/portal/appointments/${id}/messages`,'POST',{text:'Test question'},patient)).status===201,'patient sends appointment message');
+    check((await request(`/portal/appointments/${id}/messages`,'GET',null,doc)).body.data[0].text==='Test question','linked doctor receives message');
+    check((await request(`/portal/appointments/${id}/messages`,'GET',null,stranger)).status===404,'other patient cannot read messages');
+    check((await request(`/portal/appointments/${id}/messages`,'POST',{text:'Unauthorized'},otherDoc)).status===404,'other doctor cannot send messages');
+    const form=new FormData();form.append('appointmentId',id);form.append('instructions','Test record only, not medical advice');form.append('file',new Blob(['%PDF-1.4\n%%EOF'],{type:'application/pdf'}),'test-prescription.pdf');
+    const upload=await fetch(sandbox.base+'/portal/prescriptions',{method:'POST',headers:{authorization:`Bearer ${doc}`},body:form});const prescription=await upload.json();
+    check(upload.status===201,'doctor saves private prescription attachment');
+    const prescriptionId=prescription.data._id;
+    const list=await request('/portal/prescriptions','GET',null,patient);
+    check(list.body.data.length===1&&!('attachment' in list.body.data[0]),'linked patient sees prescription metadata, not raw binary');
+    const file=await fetch(sandbox.base+`/portal/prescriptions/${prescriptionId}/file`,{headers:{authorization:`Bearer ${patient}`}});
+    check(file.status===200&&file.headers.get('cache-control')==='no-store','linked patient downloads noncached private file');
+    check((await request(`/portal/prescriptions/${prescriptionId}/file`,'GET',null,stranger)).status===404,'unrelated patient cannot download prescription');
+    check((await request(`/portal/prescriptions/${prescriptionId}/file`,'GET',null,otherDoc)).status===404,'unrelated doctor cannot download prescription');
+    check((await request(`/portal/prescriptions/${prescriptionId}/file`)).status===401,'anonymous prescription access denied');
+    check((await request('/portal/prescriptions','POST',{appointmentId:id,instructions:'Unauthorized'},patient)).status===403,'patients cannot issue prescriptions');
+    const reminder=await request('/portal/reminders','POST',{title:'Test follow-up',dueAt:new Date().toISOString()},patient);
+    check(reminder.status===201,'patient saves reminder');
+    check((await request('/portal/reminders','GET',null,stranger)).body.data.length===0,'reminders isolated by account');
+    check((await request('/portal/reminders/'+reminder.body.data._id,'PATCH',{completed:true},stranger)).status===404,'other patient cannot change reminder');
+    check((await request('/portal/reminders/'+reminder.body.data._id,'PATCH',{completed:true},patient)).body.data.completed,'owner completes reminder');
+    check((await request('/portal/appointments?limit=1&page=1','GET',null,doc)).body.pagination.totalItems===1,'portal pagination reports scoped count');
+    check((await request('/users/favorites/doctors/'+sandbox.doctor._id,'POST',{},patient)).status===200,'patient saves favorite doctor');
+    const favorites=await request('/users/favorites/doctors?limit=1','GET',null,patient);
+    check(favorites.body.pagination.totalItems===1&&favorites.body.data.length===1,'saved doctors pagination');
+    await require('../models/Doctor').findByIdAndUpdate(sandbox.doctor._id,{'professional.status':'Inactive'});
+    check((await request('/users/favorites/doctors/'+sandbox.doctor._id,'POST',{},patient)).body.favorite===false,'inactive doctor can be removed from favorites');
+    console.log(`PORTAL RESULT: ${passed} assertions passed`);
+  }finally{await sandbox.close();}
+}
+run().catch(error=>{console.error(error);process.exitCode=1;});

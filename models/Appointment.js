@@ -26,4 +26,5 @@ appointmentSchema.pre("validate", function () {
   if (!this.appointmentNumber) this.appointmentNumber = `DE-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 });
 appointmentSchema.index({ doctor: 1, appointmentDate: 1, timeSlot: 1, status: 1 });
+appointmentSchema.index({ doctor: 1, appointmentDate: 1, timeSlot: 1 }, { name: 'unique_active_appointment_slot', unique: true, partialFilterExpression: { status: { $in: ['pending', 'confirmed'] } } });
 module.exports = mongoose.model("Appointment", appointmentSchema);

@@ -13,7 +13,9 @@ const ambulanceRequestSchema = new mongoose.Schema({
   status: { type: String, enum: ["pending", "assigned", "dispatched", "completed", "cancelled"], default: "pending", index: true },
   adminNotes: { type: String, trim: true, maxlength: 1500 },
   customerAcceptedAt: { type: Date },
-}, { timestamps: true });
+}, { timestamps: true, optimisticConcurrency: true });
+
+ambulanceRequestSchema.index({ambulance:1}, {name:'unique_active_ambulance',unique:true,partialFilterExpression:{status:{$in:['assigned','dispatched']},ambulance:{$type:'objectId'}}});
 
 ambulanceRequestSchema.pre("validate", function () {
   if (!this.requestNumber) this.requestNumber = `AMB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;

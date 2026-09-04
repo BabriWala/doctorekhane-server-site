@@ -17,4 +17,11 @@ async function startSandbox(port = 0) {
   return { base: `http://127.0.0.1:${server.address().port}/api`, doctor, close: async () => { await new Promise(resolve => server.close(resolve)); await mongoose.disconnect(); await database.stop(); } };
 }
 module.exports = { startSandbox };
-if (require.main === module) startSandbox(4012).then(() => console.log('ISOLATED TEST API READY: http://localhost:4012/api; admin@example.test / TestOnly!12345')).catch(error => { console.error(error); process.exit(1); });
+if (require.main === module) startSandbox(4012).then(async sandbox => {
+  const User=require('../models/User');
+  await User.create({personalDetails:{name:'Portal Test Doctor',email:'doctor-ui@example.test',phone:'01700000016'},account:{role:'doctor',password:'TestOnly!12345'},doctorProfile:sandbox.doctor._id});
+  const patient=await User.create({personalDetails:{name:'Portal Test Patient',email:'patient-ui@example.test',phone:'01700000017'},account:{role:'user',password:'TestOnly!12345'}});
+  const date=new Date(Date.now()+2*86400000).toISOString().slice(0,10);
+  await require('../models/Appointment').create({doctor:sandbox.doctor._id,user:patient._id,patient:{name:'Portal Test Patient',phone:'01700000017'},appointmentDate:new Date(date+'T10:00:00+06:00'),timeSlot:'10:00'});
+  console.log('ISOLATED TEST API READY: port4012; doctor-ui@example.test / patient-ui@example.test / admin@example.test; password TestOnly!12345');
+}).catch(error => { console.error(error); process.exit(1); });

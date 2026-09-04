@@ -1,0 +1,18 @@
+const router=require('express').Router();
+const multer=require('multer');
+const {protect,adminOnly}=require('../middleware/auth');
+const c=require('../controllers/portalController');
+router.use((req,res,next)=>{res.set('Cache-Control','no-store');next();});
+router.use(protect);
+router.post('/admin/doctor-accounts',adminOnly,c.provision);
+router.use(c.access);
+router.get('/profile',c.profile); router.patch('/profile',c.updateProfile);
+router.get('/stats',c.stats);
+router.get('/appointments',c.appointments); router.patch('/appointments/:id',c.updateAppointment);
+router.get('/reviews',c.reviews);
+router.get('/prescriptions',c.prescriptions);
+router.post('/prescriptions',multer({storage:multer.memoryStorage(),limits:{fileSize:8*1024*1024}}).single('file'),c.createPrescription);
+router.get('/prescriptions/:id/file',c.downloadPrescription);
+router.get('/appointments/:id/messages',c.messages); router.post('/appointments/:id/messages',c.sendMessage);
+router.get('/reminders',c.reminders); router.post('/reminders',c.createReminder); router.patch('/reminders/:id',c.updateReminder);
+module.exports=router;

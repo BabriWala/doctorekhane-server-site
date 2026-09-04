@@ -109,6 +109,7 @@ app.use("/api/ambulance-page-settings", ambulancePageSettingsRoutes);
 app.use("/api/blood-requests", bloodRequestRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/contact-inquiries", contactInquiryRoutes);
+app.use("/api/portal", require("./routes/portal"));
 
 // Health check
 app.get("/api/health", (req, res) => {

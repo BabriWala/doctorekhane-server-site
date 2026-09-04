@@ -144,15 +144,19 @@ exports.exportUsers = async (req, res, next) => { try {
 } catch (error) { next(error); } };
 
 exports.getFavoriteDoctors = async (req, res, next) => { try {
-  const user = await User.findById(req.user._id).populate("favoriteDoctors");
-  res.json({ success: true, data: user.favoriteDoctors || [] });
+  const user = await User.findById(req.user._id);
+  const Doctor = require('../models/Doctor');
+  const page = Math.max(parseInt(req.query.page,10)||1,1), limit = Math.min(Math.max(parseInt(req.query.limit,10)||10,1),50);
+  const filter = {_id:{$in:user.favoriteDoctors||[]}};
+  const [data,totalItems] = await Promise.all([Doctor.find(filter).sort({_id:1}).skip((page-1)*limit).limit(limit),Doctor.countDocuments(filter)]);
+  res.json({success:true,data,pagination:{currentPage:page,totalPages:Math.ceil(totalItems/limit),totalItems,pageSize:limit}});
 } catch (error) { next(error); } };
 
 exports.toggleFavoriteDoctor = async (req, res, next) => { try {
   const Doctor = require("../models/Doctor");
-  if (!(await Doctor.exists({ _id: req.params.doctorId, "professional.status": "Active" }))) return res.status(404).json({ success: false, message: "Doctor not found" });
   const user = await User.findById(req.user._id);
   const exists = user.favoriteDoctors.some((id) => String(id) === req.params.doctorId);
+  if (!exists && !(await Doctor.exists({_id:req.params.doctorId,"professional.status":"Active"}))) return res.status(404).json({success:false,message:"Doctor not found"});
   if (exists) user.favoriteDoctors.pull(req.params.doctorId); else user.favoriteDoctors.push(req.params.doctorId);
   await user.save();
   res.json({ success: true, favorite: !exists, data: user.favoriteDoctors });

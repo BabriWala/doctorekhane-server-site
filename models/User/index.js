@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema(
     account: {
       role: {
         type: String,
-        enum: ["admin", "superadmin", "user"],
+        enum: ["admin", "superadmin", "user", "doctor"],
         default: "user",
       },
       password: { type: String, required: true, minlength: 8, select: false },
@@ -48,6 +48,7 @@ const userSchema = new mongoose.Schema(
     },
     passportNumber: { type: String, trim: true, uppercase: true },
     profilePhoto: { type: String },
+    doctorProfile: { type: mongoose.Schema.Types.ObjectId, ref: "Doctor", unique: true, sparse: true },
     favoriteDoctors: [{ type: mongoose.Schema.Types.ObjectId, ref: "Doctor" }],
   },
   { timestamps: true },
