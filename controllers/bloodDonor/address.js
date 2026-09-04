@@ -35,6 +35,7 @@ const updateBloodDonorAddress = async (req, res) => {
       success: true,
       message: "Blood donor address updated successfully",
       data: donor,
+      address: donor.address,
     });
   } catch (error) {
     console.error(error);

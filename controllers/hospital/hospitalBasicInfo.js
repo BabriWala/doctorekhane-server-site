@@ -27,6 +27,7 @@ const createHospitalBasicInfo = async (req, res) => {
   } = req.body;
 
   try {
+    if (!String(name || "").trim() || !type || !String(phone || "").trim() || !String(email || "").trim()) return res.status(400).json({ message: "Hospital name, type, phone and email are required" });
     // Check if hospital with the same name already exists
     const existingHospital = await Hospital.findOne({ "basicInfo.name": name });
     if (existingHospital) {
@@ -66,6 +67,7 @@ const createHospitalBasicInfo = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (error.name === "ValidationError" || error.name === "CastError") return res.status(400).json({ message: error.message });
     if (error?.code === 11000) return res.status(409).json({ message: "Hospital name or registration number already exists" });
     res.status(500).json({ message: "Server error", error: error.message });
   }

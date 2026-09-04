@@ -9,10 +9,12 @@ const getAllDoctors = async (req, res, next) => { try {
   const match = {};
   const isAdmin = ["admin", "superadmin"].includes(req.user?.account?.role);
   if (!isAdmin) match["professional.status"] = "Active";
+  else if (["Active", "Inactive"].includes(req.query.status)) match["professional.status"] = req.query.status;
   if (req.query.department) match["professional.department"] = req.query.department;
   if (req.query.field) match["professional.field"] = req.query.field;
-  if (req.query.specialization) match["specialization.field"] = { $regex: escapeRegex(req.query.specialization), $options: "i" };
+  if (req.query.specialization) match.$and = [{ $or: ["specialization.field", "professional.department", "professional.field"].map(field => ({ [field]: { $regex: escapeRegex(req.query.specialization), $options: "i" } })) }];
   if (req.query.city) match["chambers.address.city"] = { $regex: escapeRegex(req.query.city), $options: "i" };
+  if (req.query.district) match["chambers.address.state"] = { $regex: escapeRegex(req.query.district), $options: "i" };
   if (req.query.gender) match["personalDetails.gender"] = req.query.gender;
   if (req.query.availableDay) match["chambers.day"] = req.query.availableDay;
   if (req.query.telemedicine !== undefined) match.telemedicine = req.query.telemedicine === "true";
@@ -51,15 +53,16 @@ const getDoctorById = async (req, res, next) => { try {
 
 const getDoctorFilterOptions = async (_req, res, next) => { try {
   const active = { "professional.status": "Active" };
-  const [departments, fields, specializations, cities, languages] = await Promise.all([
+  const [departments, fields, specializations, cities, languages, districts] = await Promise.all([
     Doctor.distinct("professional.department", active),
     Doctor.distinct("professional.field", active),
     Doctor.distinct("specialization.field", active),
     Doctor.distinct("chambers.address.city", active),
     Doctor.distinct("languages", active),
+    Doctor.distinct("chambers.address.state", active),
   ]);
   const clean = (values) => values.filter((value) => typeof value === "string" && value.trim()).sort((a, b) => a.localeCompare(b));
-  res.json({ success: true, data: { departments: clean(departments), fields: clean(fields), specializations: clean(specializations), cities: clean(cities), languages: clean(languages) } });
+  res.json({ success: true, data: { departments: clean(departments), fields: clean(fields), specializations: clean(specializations), cities: clean(cities), districts: clean(districts), languages: clean(languages) } });
 } catch (error) { next(error); } };
 
 const getDoctorsBySpecialization = async (req, res, next) => { try {

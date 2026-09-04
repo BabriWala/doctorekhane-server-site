@@ -29,6 +29,8 @@ const doctorSchema = new mongoose.Schema(
 );
 
 doctorSchema.pre("validate", function () {
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  this.chambers.sort((a, b) => days.indexOf(a.day) - days.indexOf(b.day) || String(a.from).localeCompare(String(b.from)));
   if (!this.slug && this.personalDetails?.firstName) {
     const name = `${this.personalDetails.firstName}-${this.personalDetails.lastName || ""}`
       .toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

@@ -1,6 +1,26 @@
 const Ambulance = require("../models/Ambulance");
 const AmbulanceRequest = require("../models/AmbulanceRequest");
 
+exports.customerAction = async (req, res, next) => { try {
+  const { requestNumber, contactNumber, action } = req.body;
+  if (!requestNumber || !contactNumber || !["accept", "cancel"].includes(action)) return res.status(400).json({ success: false, message: "Reference, phone and a valid action are required" });
+  const request = await AmbulanceRequest.findOne({ requestNumber: String(requestNumber).trim().toUpperCase(), contactNumber: String(contactNumber).trim() });
+  if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+  if (action === "cancel") {
+    if (!["pending", "assigned"].includes(request.status)) return res.status(409).json({ success: false, message: "This request can no longer be cancelled online. Please call the provider." });
+    request.status = "cancelled";
+    await request.save();
+    if (request.ambulance) {
+      const busy = await AmbulanceRequest.exists({ ambulance: request.ambulance, status: { $in: ["assigned", "dispatched"] } });
+      if (!busy) await Ambulance.findByIdAndUpdate(request.ambulance, { "availability.isAvailable": true });
+    }
+  } else {
+    if (request.status !== "assigned") return res.status(409).json({ success: false, message: "Only an assigned ambulance can be accepted" });
+    request.customerAcceptedAt = new Date(); await request.save();
+  }
+  res.json({ success: true, data: request });
+} catch (error) { next(error); } };
+
 exports.createRequest = async (req, res, next) => { try {
   const scheduledAt = new Date(req.body.scheduledAt);
   if (Number.isNaN(scheduledAt.getTime()) || scheduledAt < new Date()) return res.status(400).json({ success: false, message: "A future pickup date and time is required" });

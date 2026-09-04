@@ -12,6 +12,7 @@ const ambulanceRequestSchema = new mongoose.Schema({
   emergencyDetails: { type: String, trim: true, maxlength: 1500 },
   status: { type: String, enum: ["pending", "assigned", "dispatched", "completed", "cancelled"], default: "pending", index: true },
   adminNotes: { type: String, trim: true, maxlength: 1500 },
+  customerAcceptedAt: { type: Date },
 }, { timestamps: true });
 
 ambulanceRequestSchema.pre("validate", function () {
