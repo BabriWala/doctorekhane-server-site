@@ -10,7 +10,7 @@ exports.registerBloodDonor = async (req, res, next) => { try {
     basicInfo: { firstName: nameParts.shift(), lastName: nameParts.length ? nameParts.pop() : "-", middleName: nameParts.join(" "), gender: req.body.gender, dob: req.body.dob, bloodGroup: req.body.bloodGroup },
     address: { address: req.body.location, city: req.body.location },
     contact: { phone: req.body.contactNumber, email: req.body.email || undefined },
-    donationInfo: { isActive: false, notes: `Self-registration pending admin approval. Preferred availability: ${req.body.availability || "not specified"}` },
+    donationInfo: { isActive: false, availableFrom: new Date(Date.now() + ({ now: 0, '7days': 7, '30days': 30 }[req.body.availability] || 0) * 86400000), notes: `Self-registration pending admin approval. Preferred availability: ${req.body.availability || "not specified"}` },
   });
   res.status(201).json({ success: true, message: "Donor registration submitted for approval", data: { id: donor._id } });
 } catch (error) { next(error); } };

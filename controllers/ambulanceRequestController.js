@@ -63,6 +63,10 @@ exports.updateRequest = async (req, res, next) => { try {
     selectedAmbulance = await Ambulance.findById(nextAmbulanceId);
     if (!selectedAmbulance) return res.status(404).json({ success: false, message: "Ambulance not found" });
     if (selectedAmbulance.basicInfo?.type !== request.serviceType) return res.status(409).json({ success: false, message: "The ambulance type does not match the requested service" });
+    if (["assigned", "dispatched"].includes(nextStatus)) {
+      const busy = await AmbulanceRequest.exists({ _id: { $ne: request._id }, ambulance: selectedAmbulance._id, status: { $in: ["assigned", "dispatched"] } });
+      if (busy) return res.status(409).json({ success: false, message: "This ambulance is already assigned to another active request" });
+    }
     const changingAmbulance = String(request.ambulance || "") !== String(selectedAmbulance._id);
     if (changingAmbulance && !selectedAmbulance.availability?.isAvailable) return res.status(409).json({ success: false, message: "Selected ambulance is not available" });
   }
@@ -72,10 +76,12 @@ exports.updateRequest = async (req, res, next) => { try {
   request.set(updates);
   await request.save();
   if (previousAmbulanceId && String(previousAmbulanceId) !== String(request.ambulance || "")) {
-    await Ambulance.findByIdAndUpdate(previousAmbulanceId, { "availability.isAvailable": true });
+    const busy = await AmbulanceRequest.exists({ ambulance: previousAmbulanceId, status: { $in: ["assigned", "dispatched"] } });
+    await Ambulance.findByIdAndUpdate(previousAmbulanceId, { "availability.isAvailable": !busy });
   }
   if (selectedAmbulance) {
-    const isAvailable = ["completed", "cancelled"].includes(request.status);
+    const busy = await AmbulanceRequest.exists({ ambulance: selectedAmbulance._id, status: { $in: ["assigned", "dispatched"] } });
+    const isAvailable = !busy;
     await Ambulance.findByIdAndUpdate(selectedAmbulance._id, { "availability.isAvailable": isAvailable });
   }
   await request.populate("ambulance");

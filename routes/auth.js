@@ -25,8 +25,8 @@ const registerValidation = [
     .matches(/^(\+88)?01[3-9]\d{8}$/)
     .withMessage("সঠিক ফোন নম্বর দিন"),
   body("password")
-    .isLength({ min: 6 })
-    .withMessage("পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে"),
+    .isLength({ min: 8 })
+    .withMessage("পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে"),
 ];
 
 router.post("/register", registerValidation, register);

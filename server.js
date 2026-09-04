@@ -86,11 +86,11 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // ─── MONGODB CONNECTION ─────────────────────────────
-mongoose
+const databaseReady = mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => {
     console.log("✅ MongoDB connected successfully");
-    createDefaultAdmin(); // Only creates admin if it does not exist
+    return createDefaultAdmin(); // Only creates admin if it does not exist
   })
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
@@ -134,6 +134,7 @@ app.use((req, res) => {
 
 // ─── START SERVER ─────────────────────────────
 const PORT = process.env.PORT || 4002;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+if (require.main === module) app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 module.exports = app;
+module.exports.databaseReady = databaseReady;

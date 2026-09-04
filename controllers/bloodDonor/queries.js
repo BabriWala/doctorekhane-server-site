@@ -24,11 +24,16 @@ const getAllBloodDonors = async (req, res) => {
     }
     if (isActive !== undefined)
       filter["donationInfo.isActive"] = isActive === "true";
+    if (["now", "7days"].includes(req.query.availability)) {
+      const cutoff = new Date(Date.now() + (req.query.availability === "7days" ? 7 : 0) * 86400000);
+      filter.$and = [...(filter.$and || []), { $or: [{ "donationInfo.availableFrom": { $lte: cutoff } }, { "donationInfo.availableFrom": { $exists: false } }] }];
+    }
+    const sort = { recent: { "donationInfo.lastDonationDate": -1, _id: 1 }, donations: { "donationInfo.totalDonations": -1, _id: 1 }, location: { "address.city": 1, _id: 1 } }[req.query.sort] || { createdAt: -1, _id: 1 };
 
     // ✅ total count (before pagination)
     const [total, donors, locations] = await Promise.all([
       BloodDonor.countDocuments(filter),
-      BloodDonor.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
+      BloodDonor.find(filter).skip(skip).limit(limit).sort(sort),
       BloodDonor.distinct("address.city", { "donationInfo.isActive": true }),
     ]);
 

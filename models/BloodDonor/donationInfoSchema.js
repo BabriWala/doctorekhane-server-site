@@ -5,6 +5,7 @@ const donationInfoSchema = new mongoose.Schema({
   lastDonationDate: { type: Date },
   totalDonations: { type: Number, min: 0, default: 0 },
   isActive: { type: Boolean, default: true },
+  availableFrom: { type: Date, default: Date.now },
   notes: { type: String },
 });
 

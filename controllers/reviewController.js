@@ -13,7 +13,8 @@ const refreshRating = async (type, target) => {
     { $match: { target, targetType: type, status: "approved" } },
     { $group: { _id: null, average: { $avg: "$rating" }, count: { $sum: 1 } } },
   ]);
-  await entry.Model.findByIdAndUpdate(target, { ratingAverage: Number((stats?.average || 0).toFixed(1)), reviewCount: stats?.count || 0 });
+  const prefix = type === "Hospital" ? "basicInfo." : "";
+  await entry.Model.findByIdAndUpdate(target, { [`${prefix}ratingAverage`]: Number((stats?.average || 0).toFixed(1)), [`${prefix}reviewCount`]: stats?.count || 0 });
 };
 
 exports.listReviews = (kind) => async (req, res, next) => { try {

@@ -15,6 +15,14 @@ const userSchema = new mongoose.Schema(
         index: true,
       },
       phone: { type: String },
+      dob: { type: Date, default: null },
+      address: {
+        street: { type: String, trim: true, default: "" },
+        city: { type: String, trim: true, default: "" },
+        state: { type: String, trim: true, default: "" },
+        postalCode: { type: String, trim: true, default: "" },
+        country: { type: String, trim: true, default: "বাংলাদেশ" },
+      },
     },
 
     account: {
