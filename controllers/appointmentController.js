@@ -40,6 +40,17 @@ exports.listAppointments = async (req, res, next) => { try {
 exports.updateAppointment = async (req, res, next) => { try {
   const allowed = ["status", "paymentStatus", "notes", "appointmentDate", "timeSlot"];
   const updates = {}; for (const field of allowed) if (req.body[field] !== undefined) updates[field] = req.body[field];
+  if (updates.appointmentDate !== undefined || updates.timeSlot !== undefined) {
+    const existing = await Appointment.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: "Appointment not found" });
+    const date = new Date(updates.appointmentDate ?? existing.appointmentDate);
+    const time = updates.timeSlot ?? existing.timeSlot;
+    if (Number.isNaN(date.getTime()) || date <= new Date()) return res.status(400).json({ success: false, message: "A future appointment date is required" });
+    const doctor = await Doctor.findById(existing.doctor);
+    if (!doctor || !isAvailableSlot(doctor.chambers, date, time, existing.chamberId)) return res.status(400).json({ success: false, message: "Choose a time within the doctor's published chamber hours" });
+    const collision = await Appointment.exists({ _id: { $ne: existing._id }, doctor: existing.doctor, appointmentDate: date, timeSlot: time, status: { $in: ["pending", "confirmed"] } });
+    if (collision) return res.status(409).json({ success: false, message: "This appointment slot is no longer available" });
+  }
   const appointment = await Appointment.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   if (!appointment) return res.status(404).json({ success: false, message: "Appointment not found" });
   res.json({ success: true, data: appointment });

@@ -7,6 +7,9 @@ const updateBloodDonorDonationInfo = async (req, res) => {
   try {
     const { donorId } = req.params;
     const { lastDonationDate, totalDonations, isActive, notes } = req.body;
+    if (totalDonations !== undefined && (!Number.isInteger(Number(totalDonations)) || Number(totalDonations) < 0)) return res.status(400).json({ message: "Total donations must be a non-negative whole number" });
+    if (lastDonationDate && (Number.isNaN(new Date(lastDonationDate).getTime()) || new Date(lastDonationDate) > new Date())) return res.status(400).json({ message: "Last donation date must be a valid date in the past" });
+    if (isActive !== undefined && ![true, false, "true", "false"].includes(isActive)) return res.status(400).json({ message: "Availability must be true or false" });
 
     // Find the donor by ID
     const donor = await BloodDonor.findById(donorId);
@@ -20,7 +23,7 @@ const updateBloodDonorDonationInfo = async (req, res) => {
     // Update only provided fields
     if (lastDonationDate !== undefined) donor.donationInfo.lastDonationDate = lastDonationDate || undefined;
     if (totalDonations !== undefined) donor.donationInfo.totalDonations = Number(totalDonations);
-    if (typeof isActive === "boolean") donor.donationInfo.isActive = isActive;
+    if (isActive !== undefined) donor.donationInfo.isActive = isActive === true || isActive === "true";
     if (notes !== undefined) donor.donationInfo.notes = notes;
 
     await donor.save();
@@ -31,6 +34,7 @@ const updateBloodDonorDonationInfo = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (["ValidationError", "CastError"].includes(error.name)) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: "Server error", error });
   }
 };
