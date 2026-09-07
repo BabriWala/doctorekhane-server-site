@@ -27,6 +27,12 @@ describe("production healthcare models", () => {
     expect(doctor.services).toEqual([]);
   });
 
+  test("doctor chambers sort Saturday through Friday", async () => {
+    const doctor = new Doctor({ personalDetails: { firstName: "Sort", lastName: "Doctor", gender: "Other", phone: "01700000011", email: "sort@example.com" }, chambers: ["Friday", "Monday", "Saturday", "Sunday"].map(day => ({ day, from: "10:00", to: "12:00", chamberName: day })) });
+    await doctor.validate();
+    expect(doctor.chambers.map(item => item.day)).toEqual(["Saturday", "Sunday", "Monday", "Friday"]);
+  });
+
   test("blood request generates a trackable reference", async () => {
     const request = new BloodRequest({ patientName: "Patient", bloodGroup: "O+", hospital: "General Hospital", requiredDate: new Date(Date.now() + 86400000), contactNumber: "01700000000", urgency: "urgent" });
     await request.validate();
@@ -39,5 +45,10 @@ describe("production healthcare models", () => {
     await hospital.validate();
     expect(hospital.departments[0].services).toEqual(["ECG"]);
     expect(hospital.basicInfo.accreditations).toEqual(["ISO"]);
+  });
+
+  test("hospital accepts Diagnostic Center classification", async () => {
+    const hospital = new Hospital({ basicInfo: { name: "Diagnostic Test", type: "Diagnostic Center" }, contact: { phone: "01700000012", email: "diagnostic@example.com" } });
+    await expect(hospital.validate()).resolves.toBeUndefined();
   });
 });

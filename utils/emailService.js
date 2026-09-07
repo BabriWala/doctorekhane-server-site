@@ -1,11 +1,13 @@
 const nodemailer = require("nodemailer");
+const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 
 // Create transporter
 
+const emailConfigured = () => Boolean(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS);
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false, // true if port is 465, false for 587
+  port: Number(process.env.EMAIL_PORT) || 587,
+  secure: Number(process.env.EMAIL_PORT) === 465,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -15,8 +17,9 @@ const transporter = nodemailer.createTransport({
 // Send email function
 exports.sendEmail = async (options) => {
   try {
+    if (!emailConfigured()) throw new Error("Email transport is not configured");
     const mailOptions = {
-      from: `Azhari Travels <${process.env.EMAIL_USER}>`,
+      from: process.env.EMAIL_FROM || `Doctor Ekhane <${process.env.SYSTEM_EMAIL || "support@doctorekhane.com"}>`,
       to: options.to,
       subject: options.subject,
       html: options.html,
@@ -31,18 +34,14 @@ exports.sendEmail = async (options) => {
 };
 
 // Email templates
-exports.bookingConfirmationEmail = (booking, user) => {
+exports.hospitalRegistrationEmail = (hospital) => {
   return `
-    <h2>বুকিং নিশ্চিতকরণ - Azhari Travels</h2>
-    <p>প্রিয় ${user.name},</p>
-    <p>আপনার বুকিং সফলভাবে নিশ্চিত হয়েছে।</p>
-    <h3>বুকিং বিবরণ:</h3>
-    <ul>
-      <li>বুকিং নম্বর: ${booking.bookingNumber}</li>
-      <li>প্যাকেজ: ${booking.package.title}</li>
-      <li>ভ্রমণকারী: ${booking.numberOfTravelers} জন</li>
-      <li>মোট খরচ: ৳${booking.totalCost}</li>
-    </ul>
-    <p>ধন্যবাদ,<br>Azhari Travels Team</p>
+    <h2>Hospital registration received - Doctor Ekhane</h2>
+    <p>${escapeHtml(hospital.basicInfo.name)} has been added to the management system.</p>
+    <p>Type: ${escapeHtml(hospital.basicInfo.type)}</p>
+    <p>Official website: ${process.env.SYSTEM_DOMAIN || "https://doctorekhane.com"}</p>
+    <p>Doctor Ekhane Team</p>
   `;
 };
+
+exports.emailConfigured = emailConfigured;

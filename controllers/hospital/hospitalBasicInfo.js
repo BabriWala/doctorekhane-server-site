@@ -29,7 +29,8 @@ const createHospitalBasicInfo = async (req, res) => {
   try {
     if (!String(name || "").trim() || !type || !String(phone || "").trim() || !String(email || "").trim()) return res.status(400).json({ message: "Hospital name, type, phone and email are required" });
     // Check if hospital with the same name already exists
-    const existingHospital = await Hospital.findOne({ "basicInfo.name": name });
+    const normalizedName = String(name).trim();
+    const existingHospital = await Hospital.findOne({ "basicInfo.name": { $regex: `^${normalizedName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}$`, $options: "i" } });
     if (existingHospital) {
       return res
         .status(400)
@@ -39,7 +40,7 @@ const createHospitalBasicInfo = async (req, res) => {
     // Create new hospital with basicInfo
     const hospital = new Hospital({
       basicInfo: {
-        name,
+        name: normalizedName,
         registrationNumber: String(registrationNumber || "").trim() || undefined,
         type,
         establishedYear: establishedYear === "" || establishedYear == null ? undefined : Number(establishedYear),
@@ -60,6 +61,13 @@ const createHospitalBasicInfo = async (req, res) => {
     });
 
     await hospital.save();
+
+    const { sendEmail, hospitalRegistrationEmail, emailConfigured } = require("../../utils/emailService");
+    if (emailConfigured()) {
+      const recipient = process.env.HOSPITAL_NOTIFICATION_EMAIL || process.env.SYSTEM_EMAIL || process.env.EMAIL_USER;
+      sendEmail({ to: recipient, subject: `New hospital: ${hospital.basicInfo.name}`, html: hospitalRegistrationEmail(hospital) })
+        .catch((mailError) => console.error("Hospital notification email failed:", mailError.message));
+    }
 
     res.status(201).json({
       message: "Hospital created successfully",

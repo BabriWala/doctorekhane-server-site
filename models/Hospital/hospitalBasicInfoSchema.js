@@ -6,7 +6,7 @@ const hospitalBasicInfoSchema = new mongoose.Schema({
   registrationNumber: { type: String, unique: true, sparse: true, trim: true },
   type: {
     type: String,
-    enum: ["Public", "Private", "Specialized", "Clinic"],
+    enum: ["Public", "Private", "Specialized", "Clinic", "Diagnostic Center"],
     required: true,
   },
   establishedYear: { type: Number },

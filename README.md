@@ -1,6 +1,6 @@
-# Azhari Travels Backend
+# Doctor Ekhane Backend
 
-A complete backend solution for Azhari Travels agency built with Node.js, Express, and MongoDB.
+Shared healthcare directory, booking, tracking, portal, and administration API built with Node.js, Express, and MongoDB.
 
 ## Features
 

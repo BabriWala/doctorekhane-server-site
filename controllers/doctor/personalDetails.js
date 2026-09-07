@@ -50,6 +50,11 @@ const createDoctor = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || "Doctor";
+      return res.status(409).json({ message: `${field} already exists` });
+    }
+    if (error.name === "ValidationError" || error.name === "CastError") return res.status(400).json({ message: error.message });
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -98,6 +103,11 @@ const updatePersonalDetails = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || "Doctor";
+      return res.status(409).json({ message: `${field} already exists` });
+    }
+    if (error.name === "ValidationError" || error.name === "CastError") return res.status(400).json({ message: error.message });
     return res.status(500).json({ message: "Server error" });
   }
 };

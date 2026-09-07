@@ -17,8 +17,9 @@ exports.errorHandler = (err, req, res, next) => {
   if (err.code === 11000) {
     const slot = err.message?.includes('unique_active_appointment_slot');
     const ambulance = err.message?.includes('unique_active_ambulance');
-    const message = slot ? "This appointment slot is no longer available" : ambulance ? "This ambulance is already reserved" : "ডুপ্লিকেট ডেটা পাওয়া গেছে";
-    error = { message, statusCode: slot || ambulance ? 409 : 400 };
+    const field = Object.keys(err.keyPattern || {})[0];
+    const message = slot ? "This appointment slot is no longer available" : ambulance ? "This ambulance is already reserved" : `${field || "Record"} already exists`;
+    error = { message, statusCode: 409 };
   }
 
   // Mongoose validation error

@@ -38,6 +38,9 @@ async function run() {
     const doctorId = String(sandbox.doctor._id);
     const hospital = await request('/hospital/basic-info','POST',{name:'Test Hospital',type:'Private',phone:'01700000003',email:'hospital@example.test',status:'Active'},admin);
     check(hospital.status === 201, `hospital creation (${hospital.status}: ${hospital.body.message})`);
+    check((await request('/hospital/basic-info','POST',{name:' test hospital ',type:'Private',phone:'01700000003',email:'duplicate@example.test'},admin)).status === 400, 'hospital duplicate name returns graceful validation');
+    const diagnostic = await request('/hospital/basic-info','POST',{name:'Test Diagnostic Center',type:'Diagnostic Center',phone:'01700000006',email:'diagnostic@example.test'},admin);
+    check(diagnostic.status === 201 && diagnostic.body.hospital.basicInfo.type === 'Diagnostic Center', 'diagnostic center classification');
     const hospitalId = hospital.body.hospital._id || hospital.body.hospital.id;
     check((await request(`/hospital/${hospitalId}/departments`,'POST',{name:'Cardiology',doctors:[doctorId]},admin)).status === 201, 'admin links doctor to hospital department');
     check((await request(`/hospital/${hospitalId}`)).body.departments[0].doctors[0].personalDetails.firstName === 'Demo', 'hospital returns populated doctor profile');
