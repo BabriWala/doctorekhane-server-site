@@ -51,6 +51,7 @@ async function run() {
     check((await request('/doctor?search=NoMatchingDoctor')).body.totalItems === 0, 'doctor name search excludes nonmatches');
     const post = await request('/blogs','POST',{title:'Integration Article',slug:'integration-article',summary:'Test summary',content:'Test article content',category:'Test',authorName:'Test Author',status:'published'},admin);
     check(post.status === 201, 'admin publishes blog article');
+    check((await request('/blogs/admin?status=published', 'GET', undefined, admin)).body.data.some(item => item.slug === 'integration-article'), 'admin blog CMS lists published and draft records');
     check((await request('/blogs/integration-article')).status === 200, 'published blog detail can be read');
     check((await request('/blogs?category=Test&limit=1')).body.pagination.totalItems === 1, 'blog filtering and pagination');
     check((await request('/hospital/basic-info','POST',{name:'Invalid Hospital',type:'Private'},admin)).status === 400, 'hospital missing required fields returns 400');

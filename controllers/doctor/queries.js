@@ -32,6 +32,7 @@ const getAllDoctors = async (req, res, next) => { try {
     match.$or.push({ "professional.department": regex }, { "professional.field": regex }, { "specialization.field": regex });
   }
   const sortOptions = {
+    top: { featured: -1, "professional.order": 1, ratingAverage: -1 },
     rating: { ratingAverage: -1, reviewCount: -1 }, experience: { "personalDetails.totalExperience": -1 },
     feeLow: { "professional.consultationFee": 1 }, feeHigh: { "professional.consultationFee": -1 }, newest: { createdAt: -1 },
   };
