@@ -27,10 +27,17 @@ const getAllDoctors = async (req, res, next) => { try {
     if (req.query.minFee) match["professional.consultationFee"].$gte = Number(req.query.minFee);
     if (req.query.maxFee) match["professional.consultationFee"].$lte = Number(req.query.maxFee);
   }
-  if (req.query.search) {
-    const regex = new RegExp(escapeRegex(req.query.search), "i");
+  if (req.query.search?.trim()) {
+    const search = req.query.search.trim();
+    const regex = new RegExp(escapeRegex(search).replace(/\s+/g, "\\s+"), "i");
     match.$or = ["firstName", "middleName", "lastName", "email", "phone"].map((field) => ({ [`personalDetails.${field}`]: regex }));
     match.$or.push({ "professional.department": regex }, { "professional.field": regex }, { "specialization.field": regex });
+    // Every word can match any part of the name, including omitted middle names.
+    match.$or.push({ $and: search.split(/\s+/).map(word => ({
+      $or: ["firstName", "middleName", "lastName"].map(field => ({
+        [`personalDetails.${field}`]: new RegExp(escapeRegex(word), "i"),
+      })),
+    })) });
   }
   const sortOptions = {
     top: { featured: -1, "professional.order": 1, ratingAverage: -1 },
