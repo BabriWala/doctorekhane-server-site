@@ -1,3 +1,4 @@
+const { specialtyName, specialtyMatch } = require("../../utils/specialties");
 const mongoose = require("mongoose");
 const Doctor = require("../../models/Doctor");
 
@@ -12,7 +13,7 @@ const getAllDoctors = async (req, res, next) => { try {
   else if (["Active", "Inactive"].includes(req.query.status)) match["professional.status"] = req.query.status;
   if (req.query.department) match["professional.department"] = req.query.department;
   if (req.query.field) match["professional.field"] = req.query.field;
-  if (req.query.specialization) match.$and = [{ $or: ["specialization.field", "professional.department", "professional.field"].map(field => ({ [field]: { $regex: escapeRegex(req.query.specialization), $options: "i" } })) }];
+  if (req.query.specialization?.trim()) match.$and = [specialtyMatch(req.query.specialization)];
   if (req.query.city) match["chambers.address.city"] = { $regex: escapeRegex(req.query.city), $options: "i" };
   if (req.query.district) match["chambers.address.state"] = { $regex: escapeRegex(req.query.district), $options: "i" };
   if (req.query.gender) match["personalDetails.gender"] = req.query.gender;
@@ -38,7 +39,7 @@ const getAllDoctors = async (req, res, next) => { try {
   };
   const sort = sortOptions[req.query.sort] || { "professional.order": 1, ratingAverage: -1, createdAt: -1 };
   const [doctors, totalItems] = await Promise.all([
-    Doctor.find(match).sort(sort).skip((page - 1) * limit).limit(limit).lean(),
+    Doctor.find(match).sort({ ...sort, _id: 1 }).skip((page - 1) * limit).limit(limit).lean(),
     Doctor.countDocuments(match),
   ]);
   res.json({ success: true, currentPage: page, totalItems, totalPages: Math.ceil(totalItems / limit), count: doctors.length, data: doctors.map((doctor) => ({ ...doctor, id: doctor._id })) });
@@ -63,11 +64,13 @@ const getDoctorFilterOptions = async (_req, res, next) => { try {
     Doctor.distinct("chambers.address.state", active),
   ]);
   const clean = (values) => values.filter((value) => typeof value === "string" && value.trim()).sort((a, b) => a.localeCompare(b));
-  res.json({ success: true, data: { departments: clean(departments), fields: clean(fields), specializations: clean(specializations), cities: clean(cities), districts: clean(districts), languages: clean(languages) } });
+  const names = [...new Set(clean([...departments, ...fields, ...specializations]).map(specialtyName))];
+  const specialtyCounts = await Promise.all(names.map(async name => ({ name, count: await Doctor.countDocuments({ ...active, ...specialtyMatch(name) }) })));
+  res.json({ success: true, data: { specialtyCounts, departments: clean(departments), fields: clean(fields), specializations: clean(specializations), cities: clean(cities), districts: clean(districts), languages: clean(languages) } });
 } catch (error) { next(error); } };
 
 const getDoctorsBySpecialization = async (req, res, next) => { try {
-  const doctors = await Doctor.find({ "specialization.field": { $regex: escapeRegex(req.params.specialization), $options: "i" }, "professional.status": "Active" });
+  const doctors = await Doctor.find({ ...specialtyMatch(req.params.specialization), "professional.status": "Active" });
   res.json(doctors);
 } catch (error) { next(error); } };
 
