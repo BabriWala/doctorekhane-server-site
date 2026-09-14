@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 // --- Professional Schema ---
 const professionalSchema = new mongoose.Schema({
+  allDegrees: { type: String, trim: true, default: "" },
   position: { type: String }, // e.g. Senior Consultant
   department: { type: String },
   field: { type: String },

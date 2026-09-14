@@ -5,6 +5,7 @@ const updateProfessional = async (req, res) => {
   try {
     const { doctorId } = req.params;
     const {
+      allDegrees,
       position,
       department,
       field,
@@ -19,9 +20,9 @@ const updateProfessional = async (req, res) => {
     const doctor = await Doctor.findById(doctorId);
     if (!doctor) return res.status(404).json({ message: "Doctor not found" });
 
-    const prof = doctor.professional;
+    const prof = doctor.professional || (doctor.professional = {});
 
-    const updates = { position, department, field, consultationFee, consultationFeeNew, status, order, licenseNumber, nidNumber };
+    const updates = { allDegrees, position, department, field, consultationFee, consultationFeeNew, status, order, licenseNumber, nidNumber };
     Object.entries(updates).forEach(([key, value]) => {
       if (value !== undefined) prof[key] = value;
     });
